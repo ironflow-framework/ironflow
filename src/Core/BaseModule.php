@@ -2,6 +2,8 @@
 
 namespace IronFlow\Core;
 
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Artisan;
 use IronFlow\Contracts\ModuleInterface;
 use IronFlow\Contracts\RoutableInterface;
 use IronFlow\Contracts\ViewableInterface;
@@ -254,5 +256,33 @@ abstract class BaseModule implements ModuleInterface
                 config($this->configKey(), [])
             )
         );
+    }
+
+    public function call(string $command, array $args = []): void
+    {
+        Artisan::call($command, $args); 
+    }
+
+    public function app(): Application
+    {
+        return Application::getInstance();
+    }
+
+    public function publishes(array $paths, ?string $group = null): void
+    {
+        if (function_exists('app') && method_exists(app(), 'make')) {
+            $publisher = app()->make('Illuminate\\Foundation\\Console\\VendorPublishCommand');
+            if ($publisher && method_exists($publisher, 'publish')) {
+                $publisher->publish($paths, $group);
+            }
+        }
+    }
+
+    public function getMetadata(): ModuleMetadata
+    {
+        if ($this->_metadata === null) {
+            $this->_metadata = $this->metadata();
+        }
+        return $this->_metadata;
     }
 }
