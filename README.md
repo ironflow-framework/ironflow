@@ -60,7 +60,7 @@ This creates a complete module structure:
 
 ```markdown
 app/Modules/Blog/
-├── Controllers/
+├── Http/Controllers/
 │   └── BlogController.php
 ├── Models/
 │   └── Blog.php
