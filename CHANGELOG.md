@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-10-05
+
+### Added
+
+- Added `call` method to `BaseModule` for executing Artisan commands within modules.
+- Added `app` method to `BaseModule` to access the application instance.
+
 ## [1.1.0] - 2025-10-05
 
 ### Changed
