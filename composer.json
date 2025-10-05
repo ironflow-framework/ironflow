@@ -1,0 +1,67 @@
+{
+    "name": "ironflow/ironflow",
+    "description": "A modular architecture framework for Laravel 12",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "modular",
+        "modules",
+        "architecture",
+        "framework",
+        "ironflow"
+    ],
+    "authors": [
+        {
+            "name": "Aure Dulvresse",
+            "email": "ironflow.framework@gmail.com",
+            "homepage": "https://ironflow.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "illuminate/console": "^12.0",
+        "illuminate/database": "*",
+        "illuminate/filesystem": "^12.0"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "IronFlow\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "IronFlow\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "format": "vendor/bin/php-cs-fixer fix"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "IronFlow\\IronFlowServiceProvider"
+            ],
+            "aliases": {
+                "Anvil": "IronFlow\\Facades\\Anvil"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
