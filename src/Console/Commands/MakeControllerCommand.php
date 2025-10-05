@@ -46,7 +46,7 @@ class MakeControllerCommand extends Command
             $controllerName .= 'Controller';
         }
 
-        $path = $modulePath . "/Controllers/{$controllerName}.php";
+        $path = $modulePath . "/Http/Controllers/{$controllerName}.php";
 
         if ($this->files->exists($path)) {
             $this->error("Controller {$controllerName} already exists!");
@@ -71,7 +71,7 @@ class MakeControllerCommand extends Command
         return <<<'PHP'
 <?php
 
-namespace App\Modules\{{module}}\Controllers;
+namespace App\Modules\Http\{{module}}\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;

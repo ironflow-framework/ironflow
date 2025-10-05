@@ -62,9 +62,8 @@ class ModuleCreateCommand extends Command
         $this->info("Location: {$modulePath}");
         $this->newLine();
         $this->info("Next steps:");
-        $this->line("  1. Register the module in config/ironflow.php");
-        $this->line("  2. Run: php artisan ironflow:discover");
-        $this->line("  3. Start building your module!");
+        $this->line("  1. Run: php artisan ironflow:discover");
+        $this->line("  2. Start building your module!");
 
         return self::SUCCESS;
     }
@@ -72,7 +71,7 @@ class ModuleCreateCommand extends Command
     protected function createDirectoryStructure(string $path): void
     {
         $directories = [
-            'Controllers',
+            'Http/Controllers',
             'Models',
             'Services',
             'Routes',
