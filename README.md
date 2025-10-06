@@ -1,4 +1,4 @@
-# IronFlow v1.0.0
+# IronFlow
 
 <p align="start">
   <img src="https://img.shields.io/badge/version-1.2.1-blue" alt="Version 1.2.1">
