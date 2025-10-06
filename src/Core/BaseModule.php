@@ -174,6 +174,16 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
+     * Load views from path
+     */
+    protected function loadViewsFrom(string $path): void
+    {
+        if (method_exists($this, 'loadViewsFrom')) {
+            View::addNamespace($this->viewNamespace(), $path);
+        }
+    }
+
+    /**
      * Helper to load routes
      */
     protected function loadRoutesFrom(string $path): void
@@ -260,7 +270,7 @@ abstract class BaseModule implements ModuleInterface
 
     public function call(string $command, array $args = []): void
     {
-        Artisan::call($command, $args); 
+        Artisan::call($command, $args);
     }
 
     public function app(): Application
