@@ -2,8 +2,8 @@
 
 <p align="center">
   <img src="https://github.com/ironflow-framework/ironflow/workflows/tests/badge.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version 1.0.0">
-  <img src="https://img.shields.io/badge/PHP-%3E%3D8.2-777bb3" alt="PHP >= 8.2">
+  <img src="https://img.shields.io/badge/version-1.2.1-blue" alt="Version 1.2.1">
+  <img src="https://img.shields.io/badge/PHP-%3E%3D8.3-777bb3" alt="PHP >= 8.3">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License MIT">
 </p>
 
@@ -23,7 +23,7 @@
 
 ## Requirements
 
-- PHP 8.2 or higher
+- PHP 8.3 or higher
 - Laravel 12.x
 
 ## Installation
