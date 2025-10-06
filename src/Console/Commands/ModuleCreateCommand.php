@@ -124,7 +124,7 @@ class ModuleCreateCommand extends Command
         $stub = $this->getStub('controller');
         $content = str_replace(['{{name}}'], [$name], $stub);
 
-        $this->files->put($path . '/Controllers/' . $name . 'Controller.php', $content);
+        $this->files->put($path . '/Http/Controllers/' . $name . 'Controller.php', $content);
     }
 
     protected function generateModel(string $path, string $name): void
