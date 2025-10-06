@@ -2,42 +2,85 @@
 
 namespace IronFlow\Core;
 
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Artisan;
-use IronFlow\Contracts\ModuleInterface;
-use IronFlow\Contracts\RoutableInterface;
-use IronFlow\Contracts\ViewableInterface;
-use IronFlow\Contracts\ConfigurableInterface;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\{Artisan, Route, View};
 use Illuminate\Support\Str;
+use IronFlow\Contracts\{
+    ModuleInterface,
+    RoutableInterface,
+    ViewableInterface,
+    ConfigurableInterface,
+    ExposableInterface
+};
 
 /**
- * BaseModule
+ * Class BaseModule
  *
- * Abstract base class for IronFlow modules
- * Provides common functionality and sensible defaults
+ * The abstract foundation for all IronFlow modules.
+ * Provides lifecycle hooks (register, boot), dependency container access,
+ * and standardized resource registration (config, views, routes, migrations).
+ *
+ * Each module extends this class to integrate seamlessly with the IronFlow core.
+ *
+ * @package IronFlow\Core
  */
 abstract class BaseModule implements ModuleInterface
 {
+    /**
+     * The application container instance.
+     *
+     * @var \Illuminate\Contracts\Container\Container
+     */
+    protected Container $app;
+
+    /**
+     * The absolute file system path to the module.
+     *
+     * @var string
+     */
     protected string $modulePath;
+
+    /**
+     * The fully qualified PHP namespace of the module.
+     *
+     * @var string
+     */
     protected string $moduleNamespace;
+
+    /**
+     * Cached metadata instance for this module.
+     *
+     * @var ModuleMetadata|null
+     */
     protected ?ModuleMetadata $_metadata = null;
 
-    public function __construct()
+    /**
+     * Create a new module instance.
+     *
+     * @param \Illuminate\Contracts\Container\Container|null $app
+     *        The application container, defaults to the global Laravel container.
+     */
+    public function __construct(?Container $app = null)
     {
+        $this->app = $app ?? Application::getInstance();
         $this->modulePath = $this->resolveModulePath();
         $this->moduleNamespace = $this->resolveModuleNamespace();
     }
 
     /**
-     * Get module metadata
-     * Override this method to provide custom metadata
+     * Define module metadata (must be implemented by each module).
+     *
+     * @return ModuleMetadata
      */
     abstract public function metadata(): ModuleMetadata;
 
     /**
-     * Register module services
+     * Register all services, configurations, and resources for the module.
+     *
+     * Called during the application's service registration phase.
+     *
+     * @return void
      */
     public function register(): void
     {
@@ -47,7 +90,11 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
-     * Boot module
+     * Boot runtime elements such as routes or publishable configurations.
+     *
+     * Called after all modules have been registered.
+     *
+     * @return void
      */
     public function boot(): void
     {
@@ -55,41 +102,28 @@ abstract class BaseModule implements ModuleInterface
         $this->bootConfig();
     }
 
-    /**
-     * Get module path
-     */
-    public function path(string $path = ''): string
-    {
-        return $this->modulePath . ($path ? DIRECTORY_SEPARATOR . $path : '');
-    }
+    // ---------------------------------------------------------------------
+    // Container Access
+    // ---------------------------------------------------------------------
 
     /**
-     * Get module namespace
+     * Get the application container instance.
+     *
+     * @return \Illuminate\Contracts\Container\Container
      */
-    public function namespace(): string
+    public function container(): Container
     {
-        return $this->moduleNamespace;
+        return $this->app;
     }
 
-    /**
-     * Resolve module path from class location
-     */
-    protected function resolveModulePath(): string
-    {
-        $reflection = new \ReflectionClass($this);
-        return dirname($reflection->getFileName());
-    }
+    // ---------------------------------------------------------------------
+    // Configuration Handling
+    // ---------------------------------------------------------------------
 
     /**
-     * Resolve module namespace
-     */
-    protected function resolveModuleNamespace(): string
-    {
-        return (new \ReflectionClass($this))->getNamespaceName();
-    }
-
-    /**
-     * Register module configuration
+     * Register the module configuration into the application container.
+     *
+     * @return void
      */
     protected function registerConfig(): void
     {
@@ -97,14 +131,23 @@ abstract class BaseModule implements ModuleInterface
             return;
         }
 
-        $configPath = $this->configPath();
-        if (file_exists($configPath)) {
-            $this->mergeConfig();
+        $path = $this->configPath();
+
+        if (file_exists($path)) {
+            $this->app['config']->set(
+                $this->configKey(),
+                array_merge(
+                    require $path,
+                    $this->app['config']->get($this->configKey(), [])
+                )
+            );
         }
     }
 
     /**
-     * Boot module configuration
+     * Boot the module configuration by publishing it to the config directory.
+     *
+     * @return void
      */
     protected function bootConfig(): void
     {
@@ -112,20 +155,27 @@ abstract class BaseModule implements ModuleInterface
             return;
         }
 
-        $configPath = $this->configPath();
-        if (file_exists($configPath)) {
-            $publishes = [
-                $configPath => config_path($this->configKey() . '.php'),
-            ];
+        $path = $this->configPath();
 
-            if (method_exists($this, 'publishes')) {
-                $this->publishes($publishes, 'config');
+        if (file_exists($path)) {
+            $this->app['files']->ensureDirectoryExists(config_path());
+
+            $destination = config_path($this->configKey() . '.php');
+
+            if (!file_exists($destination)) {
+                @copy($path, $destination);
             }
         }
     }
 
+    // ---------------------------------------------------------------------
+    // View Registration
+    // ---------------------------------------------------------------------
+
     /**
-     * Register module views
+     * Register the module views with the Laravel View Factory.
+     *
+     * @return void
      */
     protected function registerViews(): void
     {
@@ -134,13 +184,20 @@ abstract class BaseModule implements ModuleInterface
         }
 
         $viewsPath = $this->viewsPath();
+
         if (is_dir($viewsPath)) {
             View::addNamespace($this->viewNamespace(), $viewsPath);
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Route Bootstrapping
+    // ---------------------------------------------------------------------
+
     /**
-     * Boot module routes
+     * Load and register the module routes.
+     *
+     * @return void
      */
     protected function bootRoutes(): void
     {
@@ -148,114 +205,111 @@ abstract class BaseModule implements ModuleInterface
             return;
         }
 
-        $this->registerRoutes();
+        $webRoutes = $this->path('Routes/web.php');
+        $apiRoutes = $this->path('Routes/api.php');
+
+        if (file_exists($webRoutes)) {
+            Route::middleware('web')->group($webRoutes);
+        }
+
+        if (file_exists($apiRoutes)) {
+            Route::prefix('api')->middleware('api')->group($apiRoutes);
+        }
     }
 
+    // ---------------------------------------------------------------------
+    // Migrations
+    // ---------------------------------------------------------------------
+
     /**
-     * Register module migrations
+     * Register the module migrations directory with the migrator.
+     *
+     * @return void
      */
     protected function registerMigrations(): void
     {
-        $migrationsPath = $this->path('Database/migrations');
+        $path = $this->path('Database/Migrations');
 
-        if (is_dir($migrationsPath)) {
-            $this->loadMigrationsFrom($migrationsPath);
+        if (is_dir($path)) {
+            $this->app->make('migrator')->path($path);
         }
     }
 
-    /**
-     * Load migrations from path
-     */
-    protected function loadMigrationsFrom(string $path): void
-    {
-        if (method_exists($this, 'loadMigrationsFrom')) {
-            app()->make('migrator')->path($path);
-        }
-    }
+    // ---------------------------------------------------------------------
+    // Exposure
+    // ---------------------------------------------------------------------
 
     /**
-     * Load views from path
-     */
-    protected function loadViewsFrom(string $path): void
-    {
-        if (method_exists($this, 'loadViewsFrom')) {
-            View::addNamespace($this->viewNamespace(), $path);
-        }
-    }
-
-    /**
-     * Helper to load routes
-     */
-    protected function loadRoutesFrom(string $path): void
-    {
-        if (file_exists($path)) {
-            Route::middleware('web')->group($path);
-        }
-    }
-
-    /**
-     * Helper to load API routes
-     */
-    protected function loadApiRoutesFrom(string $path): void
-    {
-        if (file_exists($path)) {
-            Route::prefix('api')
-                ->middleware('api')
-                ->group($path);
-        }
-    }
-
-    /**
-     * Get module name from class name
-     */
-    protected function getModuleName(): string
-    {
-        $className = class_basename($this);
-        return str_replace('Module', '', $className);
-    }
-
-    /**
-     * Convert module name to snake case
-     */
-    protected function getModuleSlug(): string
-    {
-        return Str::snake($this->getModuleName());
-    }
-
-    /**
-     * Retrieve the module's exposed resources and public API.
+     * Retrieve publicly and internally exposed module resources.
      *
-     * Modules may implicitly expose certain elements (such as services or entities)
-     * to their dependent modules by default. However, only explicitly declared
-     * exposures are considered part of the module's public API.
-     *
-     * If the module implements {@see \IronFlow\Contracts\ExposableInterface},
-     * this method will invoke {@see \IronFlow\Contracts\ExposableInterface::expose()}
-     * to return the defined set of publicly available resources for inter-module
-     * communication and discovery.
-     *
-     * @return array The explicitly exposed module definitions, or an empty array if none are declared.
+     * @return array{
+     *     public: array,
+     *     internal: array
+     * }
      */
     public function getExposed(): array
     {
-        if ($this instanceof \IronFlow\Contracts\ExposableInterface) {
+        if ($this instanceof ExposableInterface) {
             $exposed = $this->expose();
 
             return [
-                'public'   => $exposed['public']   ?? [],
+                'public'   => $exposed['public'] ?? [],
                 'internal' => $exposed['internal'] ?? [],
             ];
         }
 
-        return [
-            'public'   => [],
-            'internal' => [],
-        ];
+        return ['public' => [], 'internal' => []];
     }
 
+    // ---------------------------------------------------------------------
+    // Utility Methods
+    // ---------------------------------------------------------------------
 
     /**
-     * Default config path implementation
+     * Resolve the absolute module path from the class file location.
+     *
+     * @return string
+     */
+    protected function resolveModulePath(): string
+    {
+        return dirname((new \ReflectionClass($this))->getFileName());
+    }
+
+    /**
+     * Resolve the module's namespace from the class definition.
+     *
+     * @return string
+     */
+    protected function resolveModuleNamespace(): string
+    {
+        return (new \ReflectionClass($this))->getNamespaceName();
+    }
+
+    /**
+     * Build an absolute path within the module directory.
+     *
+     * @param string $append
+     * @return string
+     */
+    public function path(string $append = ''): string
+    {
+        return $this->modulePath . ($append ? DIRECTORY_SEPARATOR . $append : '');
+    }
+
+    /**
+     * Get the fully qualified module namespace.
+     *
+     * @return string
+     */
+    public function namespace(): string
+    {
+        return $this->moduleNamespace;
+    }
+
+    /**
+     * Get the default configuration file path for the module.
+     *
+     * @return string
      */
     public function configPath(): string
     {
@@ -263,7 +317,9 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
-     * Default config key implementation
+     * Get the configuration key used for this module.
+     *
+     * @return string
      */
     public function configKey(): string
     {
@@ -271,7 +327,9 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
-     * Default views path implementation
+     * Get the default views directory for the module.
+     *
+     * @return string
      */
     public function viewsPath(): string
     {
@@ -279,7 +337,9 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
-     * Default view namespace implementation
+     * Get the view namespace used when registering module views.
+     *
+     * @return string
      */
     public function viewNamespace(): string
     {
@@ -287,44 +347,44 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
-     * Merge config helper
+     * Get the base module name (without the 'Module' suffix).
+     *
+     * @return string
      */
-    public function mergeConfig(): void
+    protected function getModuleName(): string
     {
-        config()->set(
-            $this->configKey(),
-            array_merge(
-                require $this->configPath(),
-                config($this->configKey(), [])
-            )
-        );
+        return str_replace('Module', '', class_basename($this));
     }
 
+    /**
+     * Get the module slug (snake_case version of its name).
+     *
+     * @return string
+     */
+    protected function getModuleSlug(): string
+    {
+        return Str::snake($this->getModuleName());
+    }
+
+    /**
+     * Execute an Artisan command within the module context.
+     *
+     * @param string $command
+     * @param array<string, mixed> $args
+     * @return void
+     */
     public function call(string $command, array $args = []): void
     {
         Artisan::call($command, $args);
     }
 
-    public function app(): Application
-    {
-        return Application::getInstance();
-    }
-
-    public function publishes(array $paths, ?string $group = null): void
-    {
-        if (function_exists('app') && method_exists(app(), 'make')) {
-            $publisher = app()->make('Illuminate\\Foundation\\Console\\VendorPublishCommand');
-            if ($publisher && method_exists($publisher, 'publish')) {
-                $publisher->publish($paths, $group);
-            }
-        }
-    }
-
+    /**
+     * Retrieve and cache the module metadata.
+     *
+     * @return ModuleMetadata
+     */
     public function getMetadata(): ModuleMetadata
     {
-        if ($this->_metadata === null) {
-            $this->_metadata = $this->metadata();
-        }
-        return $this->_metadata;
+        return $this->_metadata ??= $this->metadata();
     }
 }
