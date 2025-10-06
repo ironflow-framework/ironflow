@@ -211,6 +211,14 @@ class {{name}}Module extends BaseModule implements RoutableInterface
         // Register module services here
     }
 
+    public function expose(): array
+    {
+        return [
+            'public' => [],
+            'internal' => []
+        ];
+    }
+
     public function boot(): void
     {
         parent::boot();
