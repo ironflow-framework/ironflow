@@ -3,7 +3,6 @@
 namespace IronFlow\Core;
 
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use IronFlow\Contracts\ModuleInterface;
 use IronFlow\Contracts\RoutableInterface;
@@ -21,16 +20,16 @@ use Illuminate\Support\Str;
  */
 abstract class BaseModule implements ModuleInterface
 {
-    protected Container $app;
     protected string $modulePath;
     protected string $moduleNamespace;
     protected ?ModuleMetadata $_metadata = null;
+    protected Container $app;
 
     public function __construct()
     {
         $this->modulePath = $this->resolveModulePath();
         $this->moduleNamespace = $this->resolveModuleNamespace();
-        $this->app =  Application::getInstance();
+        $this->app = app();
     }
 
     /**
@@ -159,7 +158,7 @@ abstract class BaseModule implements ModuleInterface
      */
     protected function registerMigrations(): void
     {
-        $migrationsPath = $this->path('Database/Migrations');
+        $migrationsPath = $this->path('Database/migrations');
 
         if (is_dir($migrationsPath)) {
             $this->loadMigrationsFrom($migrationsPath);
@@ -172,17 +171,7 @@ abstract class BaseModule implements ModuleInterface
     protected function loadMigrationsFrom(string $path): void
     {
         if (method_exists($this, 'loadMigrationsFrom')) {
-            $this->app->make('migrator')->path($path);
-        }
-    }
-
-    /**
-     * Load views from path
-     */
-    protected function loadViewsFrom(string $path): void
-    {
-        if (method_exists($this, 'loadViewsFrom')) {
-            $this->app->make('view')->addLocation($path);
+            app()->make('migrator')->path($path);
         }
     }
 
@@ -208,6 +197,21 @@ abstract class BaseModule implements ModuleInterface
         }
     }
 
+    public function call(string $command, array $args = []): void
+    {
+        Artisan::call($command, $args);
+    }
+
+    public function publishes(array $paths, ?string $group = null): void
+    {
+        if (function_exists('app') && method_exists(app(), 'make')) {
+            $publisher = app()->make('Illuminate\\Foundation\\Console\\VendorPublishCommand');
+            if ($publisher && method_exists($publisher, 'publish')) {
+                $publisher->publish($paths, $group);
+            }
+        }
+    }
+
     /**
      * Get module name from class name
      */
@@ -224,38 +228,6 @@ abstract class BaseModule implements ModuleInterface
     {
         return Str::snake($this->getModuleName());
     }
-
-    /**
-     * Retrieve the module's exposed resources and public API.
-     *
-     * Modules may implicitly expose certain elements (such as services or entities)
-     * to their dependent modules by default. However, only explicitly declared
-     * exposures are considered part of the module's public API.
-     *
-     * If the module implements {@see \IronFlow\Contracts\ExposableInterface},
-     * this method will invoke {@see \IronFlow\Contracts\ExposableInterface::expose()}
-     * to return the defined set of publicly available resources for inter-module
-     * communication and discovery.
-     *
-     * @return array The explicitly exposed module definitions, or an empty array if none are declared.
-     */
-    public function getExposed(): array
-    {
-        if ($this instanceof \IronFlow\Contracts\ExposableInterface) {
-            $exposed = $this->expose();
-
-            return [
-                'public'   => $exposed['public']   ?? [],
-                'internal' => $exposed['internal'] ?? [],
-            ];
-        }
-
-        return [
-            'public'   => [],
-            'internal' => [],
-        ];
-    }
-
 
     /**
      * Default config path implementation
@@ -301,28 +273,5 @@ abstract class BaseModule implements ModuleInterface
                 config($this->configKey(), [])
             )
         );
-    }
-
-    public function call(string $command, array $args = []): void
-    {
-        Artisan::call($command, $args);
-    }
-
-    public function publishes(array $paths, ?string $group = null): void
-    {
-        if (function_exists('app') && method_exists(app(), 'make')) {
-            $publisher = app()->make('Illuminate\\Foundation\\Console\\VendorPublishCommand');
-            if ($publisher && method_exists($publisher, 'publish')) {
-                $publisher->publish($paths, $group);
-            }
-        }
-    }
-
-    public function getMetadata(): ModuleMetadata
-    {
-        if ($this->_metadata === null) {
-            $this->_metadata = $this->metadata();
-        }
-        return $this->_metadata;
     }
 }
