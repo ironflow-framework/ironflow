@@ -38,9 +38,4 @@ interface ModuleInterface
      */
     public function namespace(): string;
 
-    /**
-     * Get exposed definitions if any
-     */
-    public function expose(): array;
-
 }

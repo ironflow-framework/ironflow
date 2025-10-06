@@ -31,6 +31,7 @@ class Anvil
     {
         $this->modules = collect();
         $this->loadedModules = collect();
+        $this->exposedRegistry = [];
     }
 
     /**
