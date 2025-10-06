@@ -1,7 +1,6 @@
-# IronFlow Framework v1.0.0
+# IronFlow v1.0.0
 
-<p align="center">
-  <img src="https://github.com/ironflow-framework/ironflow/workflows/tests/badge.svg" alt="Tests">
+<p align="start">
   <img src="https://img.shields.io/badge/version-1.2.1-blue" alt="Version 1.2.1">
   <img src="https://img.shields.io/badge/PHP-%3E%3D8.3-777bb3" alt="PHP >= 8.3">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License MIT">
