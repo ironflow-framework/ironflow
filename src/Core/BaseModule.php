@@ -176,10 +176,10 @@ abstract class BaseModule implements ModuleInterface
     /**
      * Load views from path
      */
-    protected function loadViewsFrom(string $path): void
+    protected function loadViewsFrom(string|array $hints): void
     {
         if (method_exists($this, 'loadViewsFrom')) {
-            View::addNamespace($this->viewNamespace(), $path);
+            View::addNamespace($this->viewNamespace(), $hints);
         }
     }
 
