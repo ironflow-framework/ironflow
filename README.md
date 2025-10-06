@@ -109,7 +109,7 @@ class BlogModule extends BaseModule implements RoutableInterface
         parent::register();
         
         // Register services
-        $this->app->singleton(BlogService::class);
+        $this->app()->singleton(BlogService::class);
     }
 
     public function boot(): void
