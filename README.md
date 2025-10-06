@@ -13,17 +13,17 @@
 
 ## Features
 
-- 🧩 **True Module System** - Isolated feature domains with complete autonomy
-- 🔗 **Advanced Dependency Resolution** - Automatic dependency management with circular dependency detection
-- 🚀 **Module Lifecycle** - Register → Preload → Boot phases
-- ⚡ **Laravel 12 Native** - Built on Laravel's foundation, not against it
-- 🛠️ **Powerful CLI** - Extended Artisan commands for module management
-- 🧪 **Testing Ready** - Full PHPUnit/Pest support
-- 📦 **Publishable Modules** - Export modules as Composer packages
+- **True Module System** - Isolated feature domains with complete autonomy
+- **Advanced Dependency Resolution** - Automatic dependency management with circular dependency detection
+- **Module Lifecycle** - Register → Preload → Boot phases
+- **Laravel 12 Native** - Built on Laravel's foundation, not against it
+- **Powerful CLI** - Extended Artisan commands for module management
+- **Testing Ready** - Full PHPUnit/Pest support
+- **Publishable Modules** - Export modules as Composer packages
 
 ## Requirements
 
-- PHP 8.3 or higher
+- PHP 8.2 or higher
 - Laravel 12.x
 
 ## Installation
