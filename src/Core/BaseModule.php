@@ -2,7 +2,7 @@
 
 namespace IronFlow\Core;
 
-use Illuminate\Contracts\Container\Container;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use IronFlow\Contracts\ModuleInterface;
 use IronFlow\Contracts\RoutableInterface;
@@ -23,7 +23,7 @@ abstract class BaseModule implements ModuleInterface
     protected string $modulePath;
     protected string $moduleNamespace;
     protected ?ModuleMetadata $_metadata = null;
-    protected Container $app;
+    protected Application $app;
 
     public function __construct()
     {
