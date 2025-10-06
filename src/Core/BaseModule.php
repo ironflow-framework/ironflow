@@ -223,6 +223,38 @@ abstract class BaseModule implements ModuleInterface
     }
 
     /**
+     * Retrieve the module's exposed resources and public API.
+     *
+     * Modules may implicitly expose certain elements (such as services or entities)
+     * to their dependent modules by default. However, only explicitly declared
+     * exposures are considered part of the module's public API.
+     *
+     * If the module implements {@see \IronFlow\Contracts\ExposableInterface},
+     * this method will invoke {@see \IronFlow\Contracts\ExposableInterface::expose()}
+     * to return the defined set of publicly available resources for inter-module
+     * communication and discovery.
+     *
+     * @return array The explicitly exposed module definitions, or an empty array if none are declared.
+     */
+    public function getExposed(): array
+    {
+        if ($this instanceof \IronFlow\Contracts\ExposableInterface) {
+            $exposed = $this->expose();
+
+            return [
+                'public'   => $exposed['public']   ?? [],
+                'internal' => $exposed['internal'] ?? [],
+            ];
+        }
+
+        return [
+            'public'   => [],
+            'internal' => [],
+        ];
+    }
+
+
+    /**
      * Default config path implementation
      */
     public function configPath(): string

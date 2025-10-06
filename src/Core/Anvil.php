@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace IronFlow\Core;
 
-use IronFlow\Contracts\ModuleInterface;
-use IronFlow\Exceptions\CircularDependencyException;
-use IronFlow\Exceptions\ModuleNotFoundException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use IronFlow\Contracts\ModuleInterface;
+use IronFlow\Contracts\ExposableInterface;
+use IronFlow\Exceptions\CircularDependencyException;
+use IronFlow\Exceptions\ModuleNotFoundException;
 
 /**
  * Anvil - The IronFlow Module Manager
  *
  * Responsible for loading, registering, and managing module lifecycle
+ * including dependency validation, boot order, and exposure discovery.
  */
 class Anvil
 {
@@ -21,6 +23,9 @@ class Anvil
     protected Collection $loadedModules;
     protected array $bootOrder = [];
     protected bool $isBooted = false;
+
+    /** @var array<string, array> Cached exposed definitions by module name */
+    protected array $exposedRegistry = [];
 
     public function __construct()
     {
@@ -52,7 +57,7 @@ class Anvil
     }
 
     /**
-     * Load all registered modules
+     * Load all registered modules and validate dependencies
      */
     public function load(): self
     {
@@ -99,6 +104,9 @@ class Anvil
             // Boot the module
             $moduleData['instance']->boot();
 
+            // Collect exposed API/services/entities
+            $this->collectExposed($name, $moduleData['instance']);
+
             $this->updateModuleState($name, ModuleState::BOOTED);
             $this->loadedModules->put($name, $moduleData);
 
@@ -143,9 +151,7 @@ class Anvil
     {
         if (in_array($moduleName, $visited)) {
             $cycle = implode(' -> ', array_merge($visited, [$moduleName]));
-            throw new CircularDependencyException(
-                "Circular dependency detected: {$cycle}"
-            );
+            throw new CircularDependencyException("Circular dependency detected: {$cycle}");
         }
 
         $moduleData = $this->modules->get($moduleName);
@@ -232,7 +238,7 @@ class Anvil
     }
 
     /**
-     * Check if module is booted
+     * Check if a module is booted
      */
     public function isModuleBooted(string $name): bool
     {
@@ -271,5 +277,68 @@ class Anvil
     public function hasBooted(): bool
     {
         return $this->isBooted;
+    }
+
+    // -------------------------------------------------------------------------
+    // 🔍 Exposure Handling
+    // -------------------------------------------------------------------------
+
+    /**
+     * Collect a module’s exposed definitions (public + internal)
+     */
+    protected function collectExposed(string $name, ModuleInterface $module): void
+    {
+        if ($module instanceof ExposableInterface) {
+            $this->exposedRegistry[$name] = $module->expose();
+            Log::info("Collected exposed resources for module {$name}");
+        }
+    }
+
+    /**
+     * Get the exposure registry for all modules
+     *
+     * @return array<string, array>
+     */
+    public function getExposureRegistry(): array
+    {
+        return $this->exposedRegistry;
+    }
+
+    /**
+     * Retrieve a specific module’s exposure set
+     */
+    public function getModuleExposure(string $name): array
+    {
+        return $this->exposedRegistry[$name] ?? ['public' => [], 'internal' => []];
+    }
+
+    /**
+     * Retrieve all publicly exposed APIs across modules
+     */
+    public function getPublicAPI(): array
+    {
+        $api = [];
+
+        foreach ($this->exposedRegistry as $module => $exposed) {
+            $api[$module] = $exposed['public'] ?? [];
+        }
+
+        return $api;
+    }
+
+    /**
+     * Find an exposed resource by key
+     */
+    public function findExposed(string $key): mixed
+    {
+        foreach ($this->exposedRegistry as $module => $exposed) {
+            foreach (['public', 'internal'] as $scope) {
+                if (isset($exposed[$scope][$key])) {
+                    return $exposed[$scope][$key];
+                }
+            }
+        }
+
+        return null;
     }
 }
