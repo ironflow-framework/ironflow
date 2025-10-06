@@ -111,6 +111,16 @@ class BlogModule extends BaseModule implements RoutableInterface
         $this->app()->singleton(BlogService::class);
     }
 
+    public function expose(): array
+    {
+        return [
+            'public' => [
+                'BlogService' => BlogService::class,
+            ],
+            'internal' => []
+        ];
+    }
+
     public function boot(): void
     {
         parent::boot();
