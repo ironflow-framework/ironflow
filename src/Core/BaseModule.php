@@ -228,7 +228,7 @@ abstract class BaseModule implements ModuleInterface
      */
     protected function registerMigrations(): void
     {
-        $path = $this->path('Database/migrations');
+        $path = $this->path('Database/Migrations');
 
         if (is_dir($path)) {
             $this->app->make('migrator')->path($path);
