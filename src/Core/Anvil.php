@@ -31,6 +31,7 @@ class Anvil
     {
         $this->modules = collect();
         $this->loadedModules = collect();
+        $this->exposedRegistry = [];
     }
 
     /**
@@ -280,7 +281,7 @@ class Anvil
     }
 
     // -------------------------------------------------------------------------
-    // 🔍 Exposure Handling
+    // Module Exposure Handling
     // -------------------------------------------------------------------------
 
     /**

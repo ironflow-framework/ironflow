@@ -38,6 +38,8 @@ abstract class BaseModule implements ModuleInterface
      */
     abstract public function metadata(): ModuleMetadata;
 
+    abstract public function expose(): array;
+
     /**
      * Register module services
      */
