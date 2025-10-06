@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-10-06
+
+### Added
+
+- Introduced `expose()` method for modules to declare public APIs and exposed resources.
+- Added `collectExposed` to `Anvil` for collecting exposed resources.
+- Supports inter-module communication through explicit exposure.
+
 ## [1.2.0] - 2025-10-05
 
 ### Added
@@ -73,3 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/ironflow-framework/ironflow/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/ironflow/ironflow-framework/releases/tag/v1.0.0
+[1.1.0]: https://github.com/ironflow-framework/ironflow/releases/tag/v1.1.0
+[1.2.0]: https://github.com/ironflow-framework/ironflow/releases/tag/v1.2.0
+[1.3.0]: https://github.com/ironflow-framework/ironflow/releases/tag/v1.3.0
+
