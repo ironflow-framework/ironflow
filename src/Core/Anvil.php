@@ -5,259 +5,256 @@ declare(strict_types=1);
 namespace IronFlow\Core;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use IronFlow\Contracts\ModuleInterface;
+use IronFlow\Exceptions\ModuleException;
+use IronFlow\Exceptions\DependencyException;
+use IronFlow\Support\ModuleRegistry;
+use IronFlow\Support\DependencyResolver;
+use IronFlow\Support\ServiceExposer;
+use IronFlow\Support\ConflictDetector;
 use IronFlow\Contracts\ExposableInterface;
-use IronFlow\Exceptions\CircularDependencyException;
-use IronFlow\Exceptions\ModuleNotFoundException;
 
 /**
- * Anvil - The IronFlow Module Manager
+ * Anvil - Module Manager and Orchestrator
  *
- * Responsible for loading, registering, and managing module lifecycle
- * including dependency validation, boot order, and exposure discovery.
+ * Manages the complete lifecycle of IronFlow modules including discovery,
+ * registration, dependency resolution, service exposure, and conflict detection.
  */
 class Anvil
 {
+    /**
+     * @var ModuleRegistry
+     */
+    protected ModuleRegistry $registry;
+
+    /**
+     * @var DependencyResolver
+     */
+    protected DependencyResolver $dependencyResolver;
+
+    /**
+     * @var ServiceExposer
+     */
+    protected ServiceExposer $serviceExposer;
+
+    /**
+     * @var ConflictDetector
+     */
+    protected ConflictDetector $conflictDetector;
+
+    /**
+     * @var Collection Registered modules
+     */
     protected Collection $modules;
-    protected Collection $loadedModules;
-    protected array $bootOrder = [];
-    protected bool $isBooted = false;
 
-    /** @var array<string, array> Cached exposed definitions by module name */
-    protected array $exposedRegistry = [];
+    /**
+     * @var bool Whether modules have been discovered
+     */
+    protected bool $discovered = false;
 
-    public function __construct()
-    {
+    /**
+     * Create a new Anvil instance.
+     *
+     * @param ModuleRegistry $registry
+     * @param DependencyResolver $dependencyResolver
+     * @param ServiceExposer $serviceExposer
+     * @param ConflictDetector $conflictDetector
+     */
+    public function __construct(
+        ModuleRegistry $registry,
+        DependencyResolver $dependencyResolver,
+        ServiceExposer $serviceExposer,
+        ConflictDetector $conflictDetector
+    ) {
+        $this->registry = $registry;
+        $this->dependencyResolver = $dependencyResolver;
+        $this->serviceExposer = $serviceExposer;
+        $this->conflictDetector = $conflictDetector;
         $this->modules = collect();
-        $this->loadedModules = collect();
-        $this->exposedRegistry = [];
     }
 
     /**
-     * Register a module with the Anvil
+     * Discover and register all modules.
+     *
+     * @return void
+     * @throws ModuleException
      */
-    public function register(ModuleInterface $module): self
+    public function discover(): void
     {
-        $metadata = $module->metadata();
-
-        if (!$metadata->enabled) {
-            Log::info("Module {$metadata->name} is disabled, skipping registration");
-            return $this;
-        }
-
-        $this->modules->put($metadata->name, [
-            'instance' => $module,
-            'metadata' => $metadata,
-            'state' => ModuleState::REGISTERED,
-        ]);
-
-        Log::info("Module {$metadata->name} registered successfully");
-
-        return $this;
-    }
-
-    /**
-     * Load all registered modules and validate dependencies
-     */
-    public function load(): self
-    {
-        $this->validateDependencies();
-        $this->calculateBootOrder();
-
-        return $this;
-    }
-
-    /**
-     * Boot all modules in dependency order
-     */
-    public function boot(): void
-    {
-        if ($this->isBooted) {
+        if ($this->discovered) {
             return;
         }
 
-        foreach ($this->bootOrder as $moduleName) {
-            $this->bootModule($moduleName);
+        $modulePath = config('ironflow.path');
+
+        if (!File::isDirectory($modulePath)) {
+            Log::warning("[IronFlow] Module path does not exist: {$modulePath}");
+            $this->discovered = true;
+            return;
         }
 
-        $this->isBooted = true;
-        Log::info('All IronFlow modules booted successfully');
+        $moduleDirs = File::directories($modulePath);
+
+        foreach ($moduleDirs as $dir) {
+            $this->registerModuleFromPath($dir);
+        }
+
+        $this->discovered = true;
     }
 
     /**
-     * Boot a single module
+     * Register a module from a path.
+     *
+     * @param string $path
+     * @return void
+     * @throws ModuleException
      */
-    protected function bootModule(string $name): void
+    protected function registerModuleFromPath(string $path): void
     {
-        $moduleData = $this->modules->get($name);
+        $moduleName = basename($path);
+        $moduleClass = $this->findModuleClass($path, $moduleName);
 
-        if (!$moduleData) {
-            throw new ModuleNotFoundException("Module {$name} not found");
+        if (!$moduleClass) {
+            Log::warning("[IronFlow] Module class not found for: {$moduleName}");
+            return;
         }
 
-        try {
-            $this->updateModuleState($name, ModuleState::BOOTING);
+        if (!class_exists($moduleClass)) {
+            Log::warning("[IronFlow] Module class does not exist: {$moduleClass}");
+            return;
+        }
 
-            // Preload dependencies first
-            $this->preloadDependencies($moduleData['metadata']);
+        $this->registerModule($moduleClass);
+    }
 
-            // Boot the module
-            $moduleData['instance']->boot();
+    /**
+     * Find module class.
+     *
+     * @param string $path
+     * @param string $moduleName
+     * @return string|null
+     */
+    protected function findModuleClass(string $path, string $moduleName): ?string
+    {
+        $namespace = config('ironflow.namespace', 'Modules');
+        $possibleClasses = [
+            "{$namespace}\\{$moduleName}\\{$moduleName}Module",
+            "{$namespace}\\{$moduleName}\\Providers\\{$moduleName}ServiceProvider",
+        ];
 
-            // Collect exposed API/services/entities
-            $this->collectExposed($name, $moduleData['instance']);
+        foreach ($possibleClasses as $class) {
+            if (class_exists($class)) {
+                return $class;
+            }
+        }
 
-            $this->updateModuleState($name, ModuleState::BOOTED);
-            $this->loadedModules->put($name, $moduleData);
+        return null;
+    }
 
-            Log::info("Module {$name} booted successfully");
-        } catch (\Exception $e) {
-            $this->updateModuleState($name, ModuleState::FAILED);
-            Log::error("Module {$name} failed to boot: {$e->getMessage()}");
+    /**
+     * Register a module.
+     *
+     * @param string|BaseModule $module
+     * @return void
+     * @throws ModuleException
+     */
+    public function registerModule(string|BaseModule $module): void
+    {
+        if (is_string($module)) {
+            $module = app($module);
+        }
 
-            if ($moduleData['metadata']->required) {
+        if (!$module instanceof BaseModule) {
+            throw new ModuleException("Module must extend BaseModule");
+        }
+
+        $metadata = $module->getMetadata();
+        $moduleName = $metadata->getName();
+
+        // Check if already registered
+        if ($this->hasModule($moduleName)) {
+            throw new ModuleException("Module {$moduleName} is already registered");
+        }
+
+        // Register in registry
+        $this->registry->register($moduleName, $module);
+        $this->modules->put($moduleName, $module);
+
+        Log::info("[IronFlow] Module registered: {$moduleName}");
+    }
+
+    /**
+     * Boot all modules in dependency order.
+     *
+     * @return void
+     * @throws DependencyException
+     */
+    public function bootAll(): void
+    {
+        // Resolve dependencies
+        $bootOrder = $this->dependencyResolver->resolve($this->modules);
+
+        // Detect conflicts before booting
+        if (config('ironflow.conflict_detection.enabled', true)) {
+            $conflicts = $this->conflictDetector->detect($this->modules);
+            if (!empty($conflicts)) {
+                Log::warning("[IronFlow] Conflicts detected", $conflicts);
+            }
+        }
+
+        // Boot modules in order
+        foreach ($bootOrder as $moduleName) {
+            $module = $this->modules->get($moduleName);
+
+            if (!$module->getMetadata()->isEnabled()) {
+                continue;
+            }
+
+            try {
+                $module->boot();
+
+                // Expose services if module implements ExposableInterface
+                if ($module instanceof ExposableInterface) {
+                    $this->serviceExposer->expose($moduleName, $module->expose());
+                }
+            } catch (\Throwable $e) {
+                Log::error("[IronFlow] Failed to boot module: {$moduleName}", [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 throw $e;
             }
         }
     }
 
     /**
-     * Preload module dependencies
+     * Get a registered module.
+     *
+     * @param string $name
+     * @return BaseModule|null
      */
-    protected function preloadDependencies(ModuleMetadata $metadata): void
+    public function getModule(string $name): ?BaseModule
     {
-        foreach ($metadata->dependencies as $dependency) {
-            if (!$this->isModuleBooted($dependency)) {
-                $this->bootModule($dependency);
-            }
-        }
+        return $this->modules->get($name);
     }
 
     /**
-     * Validate all module dependencies
+     * Check if module exists.
+     *
+     * @param string $name
+     * @return bool
      */
-    protected function validateDependencies(): void
+    public function hasModule(string $name): bool
     {
-        foreach ($this->modules as $name => $data) {
-            $this->checkCircularDependencies($name, []);
-            $this->checkMissingDependencies($data['metadata']);
-        }
+        return $this->modules->has($name);
     }
 
     /**
-     * Check for circular dependencies
-     */
-    protected function checkCircularDependencies(string $moduleName, array $visited): void
-    {
-        if (in_array($moduleName, $visited)) {
-            $cycle = implode(' -> ', array_merge($visited, [$moduleName]));
-            throw new CircularDependencyException("Circular dependency detected: {$cycle}");
-        }
-
-        $moduleData = $this->modules->get($moduleName);
-        if (!$moduleData) {
-            return;
-        }
-
-        $visited[] = $moduleName;
-        $dependencies = $moduleData['metadata']->dependencies;
-
-        foreach ($dependencies as $dependency) {
-            $this->checkCircularDependencies($dependency, $visited);
-        }
-    }
-
-    /**
-     * Check for missing dependencies
-     */
-    protected function checkMissingDependencies(ModuleMetadata $metadata): void
-    {
-        foreach ($metadata->dependencies as $dependency) {
-            if (!$this->modules->has($dependency)) {
-                $message = "Module {$metadata->name} depends on missing module: {$dependency}";
-
-                if ($metadata->required) {
-                    throw new ModuleNotFoundException($message);
-                }
-
-                Log::warning($message);
-            }
-        }
-    }
-
-    /**
-     * Calculate boot order using topological sort
-     */
-    protected function calculateBootOrder(): void
-    {
-        $sorted = [];
-        $visiting = [];
-
-        foreach ($this->modules->keys() as $name) {
-            $this->topologicalSort($name, $visiting, $sorted);
-        }
-
-        $this->bootOrder = $sorted;
-    }
-
-    /**
-     * Topological sort helper
-     */
-    protected function topologicalSort(string $name, array &$visiting, array &$sorted): void
-    {
-        if (in_array($name, $sorted)) {
-            return;
-        }
-
-        $moduleData = $this->modules->get($name);
-        if (!$moduleData) {
-            return;
-        }
-
-        $visiting[] = $name;
-
-        foreach ($moduleData['metadata']->dependencies as $dependency) {
-            if ($this->modules->has($dependency)) {
-                $this->topologicalSort($dependency, $visiting, $sorted);
-            }
-        }
-
-        $sorted[] = $name;
-    }
-
-    /**
-     * Update module state
-     */
-    protected function updateModuleState(string $name, ModuleState $state): void
-    {
-        if ($this->modules->has($name)) {
-            $moduleData = $this->modules->get($name);
-            $moduleData['state'] = $state;
-            $this->modules->put($name, $moduleData);
-        }
-    }
-
-    /**
-     * Check if a module is booted
-     */
-    public function isModuleBooted(string $name): bool
-    {
-        $moduleData = $this->loadedModules->get($name);
-        return $moduleData && $moduleData['state'] === ModuleState::BOOTED;
-    }
-
-    /**
-     * Get a module instance
-     */
-    public function getModule(string $name): ?ModuleInterface
-    {
-        $moduleData = $this->modules->get($name);
-        return $moduleData['instance'] ?? null;
-    }
-
-    /**
-     * Get all registered modules
+     * Get all modules.
+     *
+     * @return Collection
      */
     public function getModules(): Collection
     {
@@ -265,81 +262,179 @@ class Anvil
     }
 
     /**
-     * Get boot order
-     */
-    public function getBootOrder(): array
-    {
-        return $this->bootOrder;
-    }
-
-    /**
-     * Check if Anvil has booted
-     */
-    public function hasBooted(): bool
-    {
-        return $this->isBooted;
-    }
-
-    // -------------------------------------------------------------------------
-    // Module Exposure Handling
-    // -------------------------------------------------------------------------
-
-    /**
-     * Collect a module’s exposed definitions (public + internal)
-     */
-    protected function collectExposed(string $name, ModuleInterface $module): void
-    {
-        if ($module instanceof ExposableInterface) {
-            $this->exposedRegistry[$name] = $module->expose();
-            Log::info("Collected exposed resources for module {$name}");
-        }
-    }
-
-    /**
-     * Get the exposure registry for all modules
+     * Get enabled modules.
      *
-     * @return array<string, array>
+     * @return Collection
      */
-    public function getExposureRegistry(): array
+    public function getEnabledModules(): Collection
     {
-        return $this->exposedRegistry;
+        return $this->modules->filter(function (BaseModule $module) {
+            return $module->getMetadata()->isEnabled();
+        });
     }
 
     /**
-     * Retrieve a specific module’s exposure set
+     * Get disabled modules.
+     *
+     * @return Collection
      */
-    public function getModuleExposure(string $name): array
+    public function getDisabledModules(): Collection
     {
-        return $this->exposedRegistry[$name] ?? ['public' => [], 'internal' => []];
+        return $this->modules->filter(function (BaseModule $module) {
+            return !$module->getMetadata()->isEnabled();
+        });
     }
 
     /**
-     * Retrieve all publicly exposed APIs across modules
+     * Enable a module.
+     *
+     * @param string $name
+     * @return void
+     * @throws ModuleException
      */
-    public function getPublicAPI(): array
+    public function enable(string $name): void
     {
-        $api = [];
+        $module = $this->getModule($name);
 
-        foreach ($this->exposedRegistry as $module => $exposed) {
-            $api[$module] = $exposed['public'] ?? [];
+        if (!$module) {
+            throw new ModuleException("Module {$name} not found");
         }
 
-        return $api;
+        $module->enable();
+        $this->clearCache();
     }
 
     /**
-     * Find an exposed resource by key
+     * Disable a module.
+     *
+     * @param string $name
+     * @return void
+     * @throws ModuleException
      */
-    public function findExposed(string $key): mixed
+    public function disable(string $name): void
     {
-        foreach ($this->exposedRegistry as $module => $exposed) {
-            foreach (['public', 'internal'] as $scope) {
-                if (isset($exposed[$scope][$key])) {
-                    return $exposed[$scope][$key];
-                }
-            }
+        $module = $this->getModule($name);
+
+        if (!$module) {
+            throw new ModuleException("Module {$name} not found");
         }
 
-        return null;
+        $module->disable();
+        $this->clearCache();
+    }
+
+    /**
+     * Install a module.
+     *
+     * @param string $name
+     * @return void
+     * @throws ModuleException
+     */
+    public function install(string $name): void
+    {
+        $module = $this->getModule($name);
+
+        if (!$module) {
+            throw new ModuleException("Module {$name} not found");
+        }
+
+        $module->install();
+    }
+
+    /**
+     * Uninstall a module.
+     *
+     * @param string $name
+     * @return void
+     * @throws ModuleException
+     */
+    public function uninstall(string $name): void
+    {
+        $module = $this->getModule($name);
+
+        if (!$module) {
+            throw new ModuleException("Module {$name} not found");
+        }
+
+        $module->uninstall();
+    }
+
+    /**
+     * Get exposed service from a module.
+     *
+     * @param string $moduleName
+     * @param string $serviceName
+     * @param string|null $requesterModule
+     * @return mixed
+     * @throws ModuleException
+     */
+    public function getService(string $moduleName, string $serviceName, ?string $requesterModule = null): mixed
+    {
+        return $this->serviceExposer->getService($moduleName, $serviceName, $requesterModule);
+    }
+
+    /**
+     * Check if module provides a service.
+     *
+     * @param string $moduleName
+     * @param string $serviceName
+     * @return bool
+     */
+    public function hasService(string $moduleName, string $serviceName): bool
+    {
+        return $this->serviceExposer->hasService($moduleName, $serviceName);
+    }
+
+    /**
+     * Get module dependencies.
+     *
+     * @param string $name
+     * @return array
+     */
+    public function getDependencies(string $name): array
+    {
+        $module = $this->getModule($name);
+        return $module ? $module->getMetadata()->getDependencies() : [];
+    }
+
+    /**
+     * Get modules that depend on given module.
+     *
+     * @param string $name
+     * @return Collection
+     */
+    public function getDependents(string $name): Collection
+    {
+        return $this->modules->filter(function (BaseModule $module) use ($name) {
+            return $module->getMetadata()->hasDependency($name);
+        });
+    }
+
+    /**
+     * Clear module cache.
+     *
+     * @return void
+     */
+    public function clearCache(): void
+    {
+        if (config('ironflow.cache.enabled', true)) {
+            Cache::forget(config('ironflow.cache.key', 'ironflow.modules'));
+        }
+    }
+
+    /**
+     * Get module statistics.
+     *
+     * @return array
+     */
+    public function getStatistics(): array
+    {
+        return [
+            'total' => $this->modules->count(),
+            'enabled' => $this->getEnabledModules()->count(),
+            'disabled' => $this->getDisabledModules()->count(),
+            'failed' => $this->modules->filter(fn($m) => $m->getState()->isFailed())->count(),
+            'booted' => $this->modules->filter(fn($m) => $m->getState()->isBooted())->count(),
+        ];
     }
 }
