@@ -9,7 +9,7 @@ namespace IronFlow\Exceptions;
  *
  * Thrown when a module fails to boot
  */
-class ModuleBootException extends IronFlowException
+class ModuleBootException extends ModuleException
 {
     public function __construct(string $moduleName, string $reason = '', int $code = 0, ?\Throwable $previous = null)
     {

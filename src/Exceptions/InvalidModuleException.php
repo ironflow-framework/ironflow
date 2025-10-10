@@ -9,7 +9,7 @@ namespace IronFlow\Exceptions;
  *
  * Thrown when a module is invalid or misconfigured
  */
-class InvalidModuleException extends IronFlowException
+class InvalidModuleException extends ModuleException
 {
     public function __construct(string $message = 'Invalid module configuration', int $code = 0, ?\Throwable $previous = null)
     {
