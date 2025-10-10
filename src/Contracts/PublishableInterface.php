@@ -7,17 +7,35 @@ namespace IronFlow\Contracts;
 /**
  * PublishableInterface
  *
- * Optional interface for modules that can be published
+ * Allows module to publish assets, config, and other files.
  */
 interface PublishableInterface
 {
     /**
-     * Get publishable assets
+     * Get publishable assets.
+     *
+     * @return array ['source' => 'destination']
      */
-    public function publishables(): array;
+    public function getPublishableAssets(): array;
 
     /**
-     * Publish module assets
+     * Get publishable config files.
+     *
+     * @return array
      */
-    public function publish(?string $tag = null): void;
+    public function getPublishableConfig(): array;
+
+    /**
+     * Get publishable views.
+     *
+     * @return array
+     */
+    public function getPublishableViews(): array;
+
+    /**
+     * Register publishable resources.
+     *
+     * @return void
+     */
+    public function registerPublishables(): void;
 }

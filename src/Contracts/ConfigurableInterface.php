@@ -7,23 +7,35 @@ namespace IronFlow\Contracts;
 /**
  * ConfigurableInterface
  *
- * Optional interface for modules with configuration
+ * Allows module to have its own configuration.
  */
 interface ConfigurableInterface
 {
     /**
-     * Get config path
+     * Get the config file path.
+     *
+     * @return string
      */
-    public function configPath(): string;
+    public function getConfigPath(): string;
 
     /**
-     * Get config key
+     * Get the config key name.
+     *
+     * @return string
      */
-    public function configKey(): string;
+    public function getConfigKey(): string;
 
     /**
-     * Merge module config with application config
+     * Register module configuration.
+     *
+     * @return void
+     */
+    public function registerConfig(): void;
+
+    /**
+     * Merge module config with application config.
+     *
+     * @return void
      */
     public function mergeConfig(): void;
 }
-

@@ -7,17 +7,14 @@ namespace IronFlow\Contracts;
 /**
  * BootableInterface
  *
- * Optional interface for modules that need early boot hooks
+ * Allows module to execute custom boot logic.
  */
 interface BootableInterface
 {
     /**
-     * Called before the module boots
+     * Boot the module.
+     *
+     * @return void
      */
-    public function booting(): void;
-
-    /**
-     * Called after the module boots
-     */
-    public function booted(): void;
+    public function bootModule(): void;
 }
