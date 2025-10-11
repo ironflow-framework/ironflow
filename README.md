@@ -12,7 +12,7 @@ IronFlow is a plug-and-play modular framework that provides complete module isol
 
 ---
 
-## 🎯 Philosophy
+## Philosophy
 
 IronFlow follows these core principles:
 
