@@ -683,4 +683,65 @@ abstract class BaseModule extends ServiceProvider
             'state' => $this->state->getCurrentState(),
         ]);
     }
+
+    /**
+     * Get seeder path.
+     *
+     * @return string
+     */
+    public function getSeederPath(): string
+    {
+        return $this->modulePath . '/Database/Seeders';
+    }
+
+    /**
+     * Get seeders.
+     *
+     * @return array
+     */
+    public function getSeeders(): array
+    {
+        return [];
+    }
+
+    /**
+     * Get seeder priority.
+     *
+     * @return int
+     */
+    public function getSeederPriority(): int
+    {
+        return 50;
+    }
+
+    /**
+     * Seed the module.
+     *
+     * @param string|null $seederClass
+     * @return void
+     */
+    public function seed(?string $seederClass = null): void
+    {
+        $namespace = config('ironflow.namespace', 'Modules');
+
+        if ($seederClass) {
+            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seederClass}";
+
+            if (class_exists($fullClass)) {
+                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
+            }
+
+            return;
+        }
+
+        $seeders = $this->getSeeders();
+
+        foreach ($seeders as $seeder) {
+            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seeder}";
+
+            if (class_exists($fullClass)) {
+                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
+            }
+        }
+    }
 }
