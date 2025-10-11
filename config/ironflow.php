@@ -1,161 +1,220 @@
 <?php
 
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Auto Discovery
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, IronFlow will automatically discover and register modules
-    | from the modules path during application bootstrap.
-    |
-    */
-
-    'auto_discover' => env('IRONFLOW_AUTO_DISCOVER', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Auto Boot
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, IronFlow will automatically boot all registered modules
-    | during application bootstrap.
-    |
-    */
-
-    'auto_boot' => env('IRONFLOW_AUTO_BOOT', true),
-
     /*
     |--------------------------------------------------------------------------
     | Modules Path
     |--------------------------------------------------------------------------
     |
-    | The base directory where modules are stored. This path is relative to
-    | the application's base path.
+    | Define where IronFlow should look for modules.
+    | Default: base_path('modules')
     |
     */
-
-    'modules_path' => env('IRONFLOW_MODULES_PATH', app_path('Modules')),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cache Modules
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, discovered modules will be cached for faster boot times.
-    | Use `php artisan ironflow:cache:clear` to clear the cache.
-    |
-    */
-
-    'cache_modules' => env('IRONFLOW_CACHE_MODULES', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Throw On Boot Failure
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, IronFlow will throw an exception if any module fails to
-    | boot. Otherwise, the error will be logged and the application will
-    | continue running.
-    |
-    */
-
-    'throw_on_boot_failure' => env('IRONFLOW_THROW_ON_BOOT_FAILURE', false),
+    'path' => env('IRONFLOW_MODULES_PATH', base_path('modules')),
 
     /*
     |--------------------------------------------------------------------------
     | Module Namespace
     |--------------------------------------------------------------------------
     |
-    | The base namespace for modules. This is used when generating new modules.
+    | Base namespace for all modules.
     |
     */
-
-    'namespace' => 'App\\Modules',
+    'namespace' => 'Modules',
 
     /*
     |--------------------------------------------------------------------------
-    | Strict Mode
+    | Auto Discovery
     |--------------------------------------------------------------------------
     |
-    | When enabled, IronFlow will enforce strict validation of module
-    | dependencies and metadata.
+    | Enable automatic discovery and registration of modules.
     |
     */
-
-    'strict_mode' => env('IRONFLOW_STRICT_MODE', false),
+    'auto_discover' => env('IRONFLOW_AUTO_DISCOVER', true),
 
     /*
     |--------------------------------------------------------------------------
-    | Priority Boot
+    | Module Priority
     |--------------------------------------------------------------------------
     |
-    | Enable priority-based boot ordering. Modules with higher priority
-    | values will boot first (after dependency resolution).
+    | Define boot priority order. Modules with higher priority boot first.
+    | You can override module priorities here.
     |
     */
-
-    'priority_boot' => env('IRONFLOW_PRIORITY_BOOT', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Allow Override
-    |--------------------------------------------------------------------------
-    |
-    | Allow modules to override global application services and configurations.
-    | Disable this for stricter control over service resolution.
-    |
-    */
-
-    'allow_override' => env('IRONFLOW_ALLOW_OVERRIDE', false),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Register Routes
-    |--------------------------------------------------------------------------
-    |
-    | Automatically register module routes during boot. You can disable this
-    | if you prefer manual route registration.
-    |
-    */
-
-    'register_routes' => env('IRONFLOW_REGISTER_ROUTES', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Register Views
-    |--------------------------------------------------------------------------
-    |
-    | Automatically register module views during boot.
-    |
-    */
-
-    'register_views' => env('IRONFLOW_REGISTER_VIEWS', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Register Migrations
-    |--------------------------------------------------------------------------
-    |
-    | Automatically register module migrations to be run with artisan migrate.
-    |
-    */
-
-    'register_migrations' => env('IRONFLOW_REGISTER_MIGRATIONS', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Disabled Modules
-    |--------------------------------------------------------------------------
-    |
-    | Manually disable specific modules by name. These modules will not be
-    | registered or booted, regardless of their metadata configuration.
-    |
-    */
-
-    'disabled_modules' => [
-        // 'ExampleModule',
+    'priorities' => [
+        // 'Core' => 100,
+        // 'Auth' => 90,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Logging
+    |--------------------------------------------------------------------------
+    |
+    | Configure module lifecycle logging.
+    |
+    */
+    'logging' => [
+        'enabled' => env('IRONFLOW_LOGGING', true),
+        'channel' => env('IRONFLOW_LOG_CHANNEL', 'stack'),
+        'level' => env('IRONFLOW_LOG_LEVEL', 'info'),
+        'log_events' => [
+            'registered' => true,
+            'booted' => true,
+            'failed' => true,
+            'enabled' => true,
+            'disabled' => true,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Debug Mode
+    |--------------------------------------------------------------------------
+    |
+    | Enable detailed debugging information for module operations.
+    |
+    */
+    'debug' => env('IRONFLOW_DEBUG', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache
+    |--------------------------------------------------------------------------
+    |
+    | Cache module registry and dependencies for performance.
+    |
+    */
+    'cache' => [
+        'enabled' => env('IRONFLOW_CACHE', true),
+        'key' => 'ironflow.modules',
+        'ttl' => 3600, // 1 hour
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lazy Loading
+    |--------------------------------------------------------------------------
+    |
+    | Configure lazy loading behavior to improve performance.
+    | Modules are only loaded when actually needed.
+    |
+    */
+    'lazy_load' => [
+        // Enable lazy loading
+        'enabled' => env('IRONFLOW_LAZY_LOAD', true),
+
+        // Modules that are always loaded (eager loading)
+        'eager' => [
+            'Core',
+            'Auth',
+            // Add modules that must always be loaded
+        ],
+
+        // Modules that can be lazy loaded
+        // If empty, all non-eager modules are lazy loaded
+        'lazy' => [
+            // 'Blog',
+            // 'Shop',
+            // 'Forum',
+        ],
+
+        // Lazy loading strategies
+        'strategies' => [
+            'route' => true,      // Load on route match
+            'service' => true,    // Load on service access
+            'event' => true,      // Load on event trigger
+            'command' => true,    // Load on artisan command
+        ],
+
+        // Preload conditions (smart preloading)
+        'preload' => [
+            // Preload modules based on route patterns
+            'routes' => [
+                '#^admin/#' => ['Admin', 'Settings'],
+                '#^api/#' => ['Api'],
+                '#^blog/#' => ['Blog', 'Comments'],
+            ],
+
+            // Preload modules based on time of day (24h format)
+            'time' => [
+                '08-12' => ['Analytics', 'Reports'], // Morning
+                '18-23' => ['Blog', 'Forum'],        // Evening
+            ],
+
+            // Preload modules based on user role
+            'roles' => [
+                'admin' => ['Admin', 'Settings', 'Analytics'],
+                'editor' => ['Blog', 'Media'],
+                'user' => ['Blog', 'Comments'],
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Conflict Detection
+    |--------------------------------------------------------------------------
+    |
+    | Enable detection and resolution of conflicts between modules.
+    |
+    */
+    'conflict_detection' => [
+        'enabled' => true,
+        'routes' => true,
+        'migrations' => true,
+        'views' => true,
+        'config' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Migration Strategy
+    |--------------------------------------------------------------------------
+    |
+    | Define how module migrations should be handled.
+    | Options: 'prefix', 'suffix', 'namespace'
+    |
+    */
+    'migration_strategy' => 'prefix',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Service Exposure
+    |--------------------------------------------------------------------------
+    |
+    | Configure how modules expose services to each other.
+    |
+    */
+    'service_exposure' => [
+        'strict_mode' => true, // Only allow exposure to linked modules
+        'allow_public' => true, // Allow public service exposure
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Export Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for exporting modules to Packagist.
+    |
+    */
+    'export' => [
+        'output_path' => storage_path('ironflow/exports'),
+        'include_tests' => true,
+        'include_docs' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Stub Customization
+    |--------------------------------------------------------------------------
+    |
+    | Path to custom stubs for module generation.
+    |
+    */
+    'stubs' => [
+        'path' => resource_path('stubs/ironflow'),
+        'custom' => false,
+    ],
 ];
