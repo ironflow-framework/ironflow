@@ -33,6 +33,7 @@ use IronFlow\Console\Commands\LazyLoadWarmupCommand;
 use IronFlow\Console\Commands\LazyLoadClearCommand;
 use IronFlow\Console\Commands\LazyLoadTestCommand;
 use IronFlow\Console\Commands\LazyLoadBenchmarkCommand;
+use IronFlow\Console\Commands\SeedModuleCommand;
 
 /**
  * IronFlowServiceProvider
@@ -134,6 +135,8 @@ class IronFlowServiceProvider extends ServiceProvider
                 LazyLoadBenchmarkCommand::class,
                 HotReloadWatchCommand::class,
                 HotReloadStatsCommand::class,
+                SeedModuleCommand::class,
+                
             ]);
         }
 
