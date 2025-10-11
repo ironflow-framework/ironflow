@@ -9,7 +9,7 @@ namespace IronFlow\Exceptions;
  *
  * Thrown when modules have conflicting services or configurations
  */
-class ModuleConflictException extends IronFlowException
+class ModuleConflictException extends ModuleException
 {
     public function __construct(string $service, array $modules, int $code = 0, ?\Throwable $previous = null)
     {

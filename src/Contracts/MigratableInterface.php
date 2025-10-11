@@ -7,22 +7,42 @@ namespace IronFlow\Contracts;
 /**
  * MigratableInterface
  *
- * Optional interface for modules with migrations
+ * Allows module to manage database migrations.
  */
 interface MigratableInterface
 {
     /**
-     * Get migrations path
+     * Get the migration path for this module.
+     *
+     * @return string
      */
-    public function migrationsPath(): string;
+    public function getMigrationPath(): string;
 
     /**
-     * Run module migrations
+     * Get migration table prefix to avoid conflicts.
+     *
+     * @return string
      */
-    public function migrate(): void;
+    public function getMigrationPrefix(): string;
 
     /**
-     * Rollback module migrations
+     * Register module migrations.
+     *
+     * @return void
      */
-    public function rollback(): void;
+    public function registerMigrations(): void;
+
+    /**
+     * Run module migrations.
+     *
+     * @return void
+     */
+    public function runMigrations(): void;
+
+    /**
+     * Rollback module migrations.
+     *
+     * @return void
+     */
+    public function rollbackMigrations(): void;
 }

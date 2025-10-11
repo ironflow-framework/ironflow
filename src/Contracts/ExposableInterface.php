@@ -5,23 +5,37 @@ declare(strict_types=1);
 namespace IronFlow\Contracts;
 
 /**
- * Interface ExposableInterface
+ * ExposableInterface
  *
- * Defines a contract for modules that can expose
- * services, entities, routes, or other resources
- * for inter-module communication or public discovery.
+ * Allows module to expose services to other modules in a controlled manner.
  */
 interface ExposableInterface
 {
     /**
-     * Declare the module’s explicitly exposed elements.
+     * Expose services from this module.
      *
-     * @return array {
-     *     @type array|null $public     Public API available to all modules
-     *     @type array|null $internal   Elements available only to dependent modules
-     * }
+     * Returns an array with 'public' and 'linked' keys:
+     * [
+     *     'public' => [...services available to all],
+     *     'linked' => [...services available to linked modules only]
+     * ]
+     *
+     * @return array
      */
     public function expose(): array;
+
+    /**
+     * Get publicly exposed services (available to all modules).
+     *
+     * @return array
+     */
+    public function getExposedPublic(): array;
+
+    /**
+     * Get services exposed to a specific linked module.
+     *
+     * @param string $moduleName
+     * @return array
+     */
+    public function getExposedForModule(string $moduleName): array;
 }
-
-

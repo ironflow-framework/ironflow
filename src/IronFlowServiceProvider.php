@@ -5,187 +5,180 @@ declare(strict_types=1);
 namespace IronFlow;
 
 use Illuminate\Support\ServiceProvider;
-use IronFlow\Core\Anvil;
-use IronFlow\Console\Commands\ModuleCreateCommand;
-use IronFlow\Console\Commands\ModulePublishCommand;
-use IronFlow\Console\Commands\ModuleInstallCommand;
-use IronFlow\Console\Commands\MakeControllerCommand;
-use IronFlow\Console\Commands\MakeModelCommand;
-use IronFlow\Console\Commands\MakeServiceCommand;
-use IronFlow\Console\Commands\MakeMigrationCommand;
-use IronFlow\Console\Commands\MakeFactoryCommand;
-use IronFlow\Console\Commands\DiscoverCommand;
-use IronFlow\Console\Commands\ListCommand;
-use IronFlow\Console\Commands\InfoCommand;
-use IronFlow\Console\Commands\EnableCommand;
-use IronFlow\Console\Commands\DisableCommand;
 use IronFlow\Console\Commands\CacheClearCommand;
 use IronFlow\Console\Commands\CacheModulesCommand;
-use IronFlow\Console\Commands\BootOrderCommand;
+use IronFlow\Console\Commands\DiscoverCommand;
+use IronFlow\Core\Anvil;
+use IronFlow\Http\Middleware\LazyLoadModules;
+use IronFlow\Support\LazyLoader;
+use IronFlow\Support\ModuleRegistry;
+use IronFlow\Support\DependencyResolver;
+use IronFlow\Support\ServiceExposer;
+use IronFlow\Support\ConflictDetector;
+use IronFlow\Console\Commands\MakeModuleCommand;
+use IronFlow\Console\Commands\PublishModuleCommand;
+use IronFlow\Console\Commands\EnableModuleCommand;
+use IronFlow\Console\Commands\DisableModuleCommand;
+use IronFlow\Console\Commands\HotReloadStatsCommand;
+use IronFlow\Console\Commands\HotReloadWatchCommand;
+use IronFlow\Console\Commands\InfoCommand;
+use IronFlow\Console\Commands\InstallModuleCommand;
+use IronFlow\Console\Commands\ListModulesCommand;
+use IronFlow\Console\Commands\MakeControllerCommand;
+use IronFlow\Console\Commands\MakeMigrationCommand;
+use IronFlow\Console\Commands\MakeModelCommand;
+use IronFlow\Console\Commands\MakeServiceCommand;
+use IronFlow\Console\Commands\LazyLoadStatsCommand;
+use IronFlow\Console\Commands\LazyLoadWarmupCommand;
+use IronFlow\Console\Commands\LazyLoadClearCommand;
+use IronFlow\Console\Commands\LazyLoadTestCommand;
+use IronFlow\Console\Commands\LazyLoadBenchmarkCommand;
+use IronFlow\Console\Commands\SeedModuleCommand;
 
+/**
+ * IronFlowServiceProvider
+ *
+ * Main service provider for IronFlow framework.
+ */
 class IronFlowServiceProvider extends ServiceProvider
 {
     /**
-     * Register services
+     * Register services.
+     *
+     * @return void
      */
     public function register(): void
     {
         // Merge configuration
         $this->mergeConfigFrom(
-            __DIR__.'/../config/ironflow.php',
+            __DIR__ . '/../config/ironflow.php',
             'ironflow'
         );
 
-        // Register Anvil as singleton
-        $this->app->singleton(Anvil::class, function ($app) {
-            return new Anvil();
+        // Register support classes
+        $this->app->singleton(ModuleRegistry::class, function () {
+            return new ModuleRegistry();
         });
 
-        // Register alias
-        $this->app->alias(Anvil::class, 'ironflow.anvil');
+        $this->app->singleton(DependencyResolver::class, function () {
+            return new DependencyResolver();
+        });
 
-        // Auto-discover modules if enabled
-        if (config('ironflow.auto_discover', true)) {
-            $this->discoverModules();
-        }
+        $this->app->singleton(ServiceExposer::class, function () {
+            return new ServiceExposer();
+        });
+
+        $this->app->singleton(ConflictDetector::class, function () {
+            return new ConflictDetector();
+        });
+
+        // Register Anvil
+        $this->app->singleton('ironflow.anvil', function ($app) {
+            return new Anvil(
+                $app->make(ModuleRegistry::class),
+                $app->make(DependencyResolver::class),
+                $app->make(ServiceExposer::class),
+                $app->make(ConflictDetector::class)
+            );
+        });
+
+        $this->app->alias('ironflow.anvil', Anvil::class);
+
+        $this->app->singleton(LazyLoader::class, function ($app) {
+            $loader = new LazyLoader($app->make('ironflow.anvil'));
+
+            // Inject lazy loader into ServiceExposer
+            $app->make(ServiceExposer::class)->setLazyLoader($loader);
+
+            return $loader;
+        });
     }
 
     /**
-     * Bootstrap services
+     * Bootstrap services.
+     *
+     * @return void
      */
     public function boot(): void
     {
         // Publish configuration
-        $this->publishes([
-            __DIR__.'/../config/ironflow.php' => config_path('ironflow.php'),
-        ], 'ironflow-config');
-
-        // Register commands
         if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__ . '/../config/ironflow.php' => config_path('ironflow.php'),
+            ], 'ironflow-config');
+
+            // Publish stubs
+            $this->publishes([
+                __DIR__ . '/../stubs' => resource_path('stubs/ironflow'),
+            ], 'ironflow-stubs');
+
+            // Register commands
             $this->commands([
-                ModuleCreateCommand::class,
-                ModulePublishCommand::class,
-                ModuleInstallCommand::class,
-                MakeControllerCommand::class,
-                MakeModelCommand::class,
-                MakeServiceCommand::class,
-                MakeMigrationCommand::class,
-                MakeFactoryCommand::class,
+                MakeModuleCommand::class,
+                PublishModuleCommand::class,
+                InstallModuleCommand::class,
+                EnableModuleCommand::class,
+                DisableModuleCommand::class,
                 DiscoverCommand::class,
-                ListCommand::class,
+                ListModulesCommand::class,
                 InfoCommand::class,
-                EnableCommand::class,
-                DisableCommand::class,
-                CacheClearCommand::class,
+                MakeModelCommand::class,
+                MakeMigrationCommand::class,
+                MakeControllerCommand::class,
+                MakeServiceCommand::class,
                 CacheModulesCommand::class,
-                BootOrderCommand::class,
+                CacheClearCommand::class,
+                LazyLoadClearCommand::class,
+                LazyLoadStatsCommand::class,
+                LazyLoadWarmupCommand::class,
+                LazyLoadTestCommand::class,
+                LazyLoadBenchmarkCommand::class,
+                HotReloadWatchCommand::class,
+                HotReloadStatsCommand::class,
+                SeedModuleCommand::class,
+                
             ]);
         }
 
-        // Boot modules
-        $anvil = $this->app->make(Anvil::class);
+        $this->app['router']->aliasMiddleware('ironflow.lazy', LazyLoadModules::class);
 
-        if (config('ironflow.auto_boot', true)) {
-            try {
-                $anvil->load()->boot();
-            } catch (\Exception $e) {
-                if (config('ironflow.throw_on_boot_failure', false)) {
-                    throw $e;
+        // Discover and boot modules
+        if (config('ironflow.auto_discover', true)) {
+            $anvil = $this->app->make('ironflow.anvil');
+            $anvil->discover();
+
+            // Use lazy loading if enabled
+            if (config('ironflow.lazy_load.enabled', true)) {
+                $lazyLoader = $this->app->make(LazyLoader::class);
+
+                // Load eager modules only
+                $lazyLoader->loadEager();
+
+                // Register global middleware for route-based lazy loading
+                if (!$this->app->runningInConsole()) {
+                    $this->app['router']->pushMiddlewareToGroup('web', LazyLoadModules::class);
                 }
-
-                logger()->error('IronFlow boot failed: ' . $e->getMessage(), [
-                    'exception' => $e,
-                ]);
-            }
-        }
-
-        // Extend Artisan commands to support modules
-        $this->extendArtisanCommands();
-    }
-
-    /**
-     * Discover and register modules
-     */
-    protected function discoverModules(): void
-    {
-        $anvil = $this->app->make(Anvil::class);
-        $modulesPath = config('ironflow.modules_path', app_path('Modules'));
-
-        if (!is_dir($modulesPath)) {
-            return;
-        }
-
-        // Check for cached modules
-        $cacheFile = storage_path('framework/cache/ironflow/modules.php');
-
-        if (config('ironflow.cache_modules', true) && file_exists($cacheFile)) {
-            $cachedModules = require $cacheFile;
-
-            foreach ($cachedModules as $moduleData) {
-                try {
-                    $module = $this->app->make($moduleData['class']);
-                    $anvil->register($module);
-                } catch (\Exception $e) {
-                    logger()->warning("Failed to load cached module: {$moduleData['class']}", [
-                        'exception' => $e->getMessage(),
-                    ]);
-                }
-            }
-
-            return;
-        }
-
-        // Discover modules from filesystem
-        $directories = glob($modulesPath . '/*', GLOB_ONLYDIR);
-
-        foreach ($directories as $directory) {
-            $moduleName = basename($directory);
-            $moduleClass = "App\\Modules\\{$moduleName}\\{$moduleName}Module";
-
-            if (class_exists($moduleClass)) {
-                try {
-                    $module = $this->app->make($moduleClass);
-                    $anvil->register($module);
-                } catch (\Exception $e) {
-                    logger()->warning("Failed to register module: {$moduleName}", [
-                        'exception' => $e->getMessage(),
-                    ]);
-                }
+            } else {
+                // Boot all modules immediately (traditional way)
+                $anvil->bootAll();
             }
         }
     }
 
     /**
-     * Extend Artisan commands to support module paths
-     */
-    protected function extendArtisanCommands(): void
-    {
-        // Extend migrate command to include module migrations
-        $this->app->booted(function () {
-            if ($this->app->runningInConsole()) {
-                $migrator = $this->app['migrator'];
-                $anvil = $this->app->make(Anvil::class);
-
-                foreach ($anvil->getModules() as $moduleData) {
-                    $module = $moduleData['instance'];
-                    $migrationsPath = $module->path('Database/migrations');
-
-                    if (is_dir($migrationsPath)) {
-                        $migrator->path($migrationsPath);
-                    }
-                }
-            }
-        });
-    }
-
-    /**
-     * Get the services provided by the provider
+     * Get the services provided by the provider.
+     *
+     * @return array
      */
     public function provides(): array
     {
         return [
-            Anvil::class,
             'ironflow.anvil',
+            Anvil::class,
+            ModuleRegistry::class,
+            DependencyResolver::class,
+            ServiceExposer::class,
+            ConflictDetector::class,
         ];
     }
 }

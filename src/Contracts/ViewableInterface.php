@@ -7,17 +7,28 @@ namespace IronFlow\Contracts;
 /**
  * ViewableInterface
  *
- * Optional interface for modules with views
+ * Allows module to register views with custom namespace and paths.
  */
 interface ViewableInterface
 {
     /**
-     * Get views path
+     * Get the view namespace for this module.
+     *
+     * @return string
      */
-    public function viewsPath(): string;
+    public function getViewNamespace(): string;
 
     /**
-     * Get view namespace
+     * Get the view paths for this module.
+     *
+     * @return array
      */
-    public function viewNamespace(): string;
+    public function getViewPaths(): array;
+
+    /**
+     * Register module views.
+     *
+     * @return void
+     */
+    public function registerViews(): void;
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * CacheClearCommand
@@ -18,11 +18,14 @@ class CacheClearCommand extends Command
 
     public function handle(): int
     {
-        $cachePath = storage_path('framework/cache/ironflow');
 
-        if (File::exists($cachePath)) {
-            File::deleteDirectory($cachePath);
+        if (config('ironflow.cache.enabled', true)) {
+            Cache::delete(
+                config('ironflow.cache.key', 'ironflow.modules'),
+            );
+
             $this->info('IronFlow cache cleared successfully!');
+
         } else {
             $this->info('No cache to clear.');
         }

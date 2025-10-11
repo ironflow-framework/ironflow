@@ -9,7 +9,7 @@ namespace IronFlow\Exceptions;
  *
  * Thrown when a required module is not found
  */
-class ModuleNotFoundException extends IronFlowException
+class ModuleNotFoundException extends ModuleException
 {
     public function __construct(string $moduleName, int $code = 0, ?\Throwable $previous = null)
     {

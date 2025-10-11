@@ -6,7 +6,9 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use IronFlow\Facades\Anvil;
 
 /**
  * MakeControllerCommand
@@ -15,9 +17,7 @@ class MakeControllerCommand extends Command
 {
     protected $signature = 'ironflow:make:controller
                             {name : The name of the controller}
-                            {module : The module name}
-                            {--resource : Generate a resource controller}';
-
+                            {module : The module name}';
     protected $description = 'Create a new controller in a module';
 
     protected Filesystem $files;
@@ -31,20 +31,18 @@ class MakeControllerCommand extends Command
     public function handle(): int
     {
         $name = $this->argument('name');
-        $module = $this->argument('module');
-        $resource = $this->option('resource');
+        $namespace = $this->argument('module');
 
-        $modulePath = app_path("Modules/{$module}");
+        $name = Str::studly($this->argument('name'));
+        $namespace = $this->argument('module');
 
-        if (!$this->files->exists($modulePath)) {
-            $this->error("Module {$module} does not exist!");
-            return self::FAILURE;
-        }
+        $modulePath = config('ironflow.path') . '/' . $namespace;
+
+        $stub = $this->getStub('model');
+        $namespace = config('ironflow.namespace', 'Modules');
 
         $controllerName = Str::studly($name);
-        if (!Str::endsWith($controllerName, 'Controller')) {
-            $controllerName .= 'Controller';
-        }
+        $lowerName = Str::lower($name);
 
         $path = $modulePath . "/Http/Controllers/{$controllerName}.php";
 
@@ -53,10 +51,10 @@ class MakeControllerCommand extends Command
             return self::FAILURE;
         }
 
-        $stub = $resource ? $this->getResourceStub() : $this->getStub();
+        $stub = $this->getStub('controller');
         $content = str_replace(
-            ['{{module}}', '{{name}}'],
-            [$module, $controllerName],
+            ['{{namespace}}', '{{name}}', '{{lower_name}}'],
+            [$namespace, $controllerName, $lowerName],
             $stub
         );
 
@@ -66,73 +64,15 @@ class MakeControllerCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function getStub(): string
+    protected function getStub(string $name): string
     {
-        return <<<'PHP'
-<?php
+        $customPath = resource_path('stubs/ironflow/' . $name . '.stub');
+        $defaultPath = __DIR__ . '/../../stubs/' . $name . '.stub';
 
-namespace App\Modules\Http\{{module}}\Controllers;
+        if (File::exists($customPath)) {
+            return File::get($customPath);
+        }
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
-class {{name}} extends Controller
-{
-    public function __invoke(Request $request)
-    {
-        //
-    }
-}
-PHP;
-    }
-
-    protected function getResourceStub(): string
-    {
-        return <<<'PHP'
-<?php
-
-namespace App\Modules\{{module}}\Controllers;
-
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
-class {{name}} extends Controller
-{
-    public function index()
-    {
-        //
-    }
-
-    public function create()
-    {
-        //
-    }
-
-    public function store(Request $request)
-    {
-        //
-    }
-
-    public function show(string $id)
-    {
-        //
-    }
-
-    public function edit(string $id)
-    {
-        //
-    }
-
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    public function destroy(string $id)
-    {
-        //
-    }
-}
-PHP;
+        return File::get($defaultPath);
     }
 }

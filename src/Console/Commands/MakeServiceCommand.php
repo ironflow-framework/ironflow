@@ -6,6 +6,7 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
@@ -19,69 +20,36 @@ class MakeServiceCommand extends Command
 
     protected $description = 'Create a new service in a module';
 
-    protected Filesystem $files;
-
-    public function __construct(Filesystem $files)
-    {
-        parent::__construct();
-        $this->files = $files;
-    }
-
     public function handle(): int
     {
-        $name = Str::studly($this->argument('name'));
+         $name = Str::studly($this->argument('name'));
         $module = $this->argument('module');
 
-        if (!Str::endsWith($name, 'Service')) {
-            $name .= 'Service';
-        }
+        $modulePath = config('ironflow.path') . '/' . $module;
 
-        $modulePath = app_path("Modules/{$module}");
-
-        if (!$this->files->exists($modulePath)) {
-            $this->error("Module {$module} does not exist!");
-            return self::FAILURE;
-        }
-
-        $path = $modulePath . "/Services/{$name}.php";
-
-        if ($this->files->exists($path)) {
-            $this->error("Service {$name} already exists!");
-            return self::FAILURE;
-        }
-
-        $stub = $this->getStub();
+        $stub = $this->getStub('service');
+        $namespace = config('ironflow.namespace', 'Modules');
         $content = str_replace(
-            ['{{module}}', '{{name}}'],
-            [$module, $name],
+            ['{{namespace}}', '{{name}}'],
+            [$namespace, $name],
             $stub
         );
+        File::put($modulePath . '/Models/' . $name . '.php', $content);
 
-        $this->files->put($path, $content);
         $this->info("Service {$name} created successfully!");
 
         return self::SUCCESS;
     }
 
-    protected function getStub(): string
+    protected function getStub(string $name): string
     {
-        return <<<'PHP'
-<?php
+        $customPath = resource_path('stubs/ironflow/' . $name . '.stub');
+        $defaultPath = __DIR__ . '/../../stubs/' . $name . '.stub';
 
-namespace App\Modules\{{module}}\Services;
+        if (File::exists($customPath)) {
+            return File::get($customPath);
+        }
 
-class {{name}}
-{
-    public function __construct()
-    {
-        //
-    }
-
-    public function handle()
-    {
-        //
-    }
-}
-PHP;
+        return File::get($defaultPath);
     }
 }

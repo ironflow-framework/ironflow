@@ -6,6 +6,7 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
@@ -21,41 +22,23 @@ class MakeModelCommand extends Command
 
     protected $description = 'Create a new model in a module';
 
-    protected Filesystem $files;
-
-    public function __construct(Filesystem $files)
-    {
-        parent::__construct();
-        $this->files = $files;
-    }
 
     public function handle(): int
     {
         $name = Str::studly($this->argument('name'));
         $module = $this->argument('module');
 
-        $modulePath = app_path("Modules/{$module}");
+        $modulePath = config('ironflow.path') . '/' . $module;
 
-        if (!$this->files->exists($modulePath)) {
-            $this->error("Module {$module} does not exist!");
-            return self::FAILURE;
-        }
-
-        $path = $modulePath . "/Models/{$name}.php";
-
-        if ($this->files->exists($path)) {
-            $this->error("Model {$name} already exists!");
-            return self::FAILURE;
-        }
-
-        $stub = $this->getStub();
+        $stub = $this->getStub('model');
+        $namespace = config('ironflow.namespace', 'Modules');
         $content = str_replace(
-            ['{{module}}', '{{name}}', '{{table}}'],
-            [$module, $name, Str::snake(Str::pluralStudly($name))],
+            ['{{namespace}}', '{{name}}'],
+            [$namespace, $name],
             $stub
         );
+        File::put($modulePath . '/Models/' . $name . '.php', $content);
 
-        $this->files->put($path, $content);
         $this->info("Model {$name} created successfully!");
 
         if ($this->option('migration')) {
@@ -75,26 +58,15 @@ class MakeModelCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function getStub(): string
+    protected function getStub(string $name): string
     {
-        return <<<'PHP'
-<?php
+        $customPath = resource_path('stubs/ironflow/' . $name . '.stub');
+        $defaultPath = __DIR__ . '/../../stubs/' . $name . '.stub';
 
-namespace App\Modules\{{module}}\Models;
+        if (File::exists($customPath)) {
+            return File::get($customPath);
+        }
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-
-class {{name}} extends Model
-{
-    use HasFactory;
-
-    protected $table = '{{table}}';
-
-    protected $fillable = [];
-
-    protected $casts = [];
-}
-PHP;
+        return File::get($defaultPath);
     }
 }

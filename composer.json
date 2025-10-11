@@ -1,6 +1,6 @@
 {
     "name": "ironflow/ironflow",
-    "description": "A modular architecture framework for Laravel 12",
+    "description": "A modular architecture framework for Laravel 12+",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -22,7 +22,8 @@
         "php": "^8.3",
         "illuminate/console": "^12.0",
         "illuminate/database": "^12.0",
-        "illuminate/filesystem": "^12.0"
+        "illuminate/filesystem": "^12.0",
+        "illuminate/support": "^12.0"
     },
     "require-dev": {
         "mockery/mockery": "^1.6",

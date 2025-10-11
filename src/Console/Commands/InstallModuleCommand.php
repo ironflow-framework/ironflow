@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\File;
  *
  * Install a module from a local path or Composer package
  */
-class ModuleInstallCommand extends Command
+class InstallModuleCommand extends Command
 {
     protected $signature = 'ironflow:module:install
                             {source : Package name or local path}
@@ -65,7 +65,8 @@ class ModuleInstallCommand extends Command
 
         // Extract module name from path
         $moduleName = basename($path);
-        $targetPath = app_path("Modules/{$moduleName}");
+        $modulesPath = config('ironflow.path');
+        $targetPath = $modulesPath . "/{$moduleName}";
 
         if (is_dir($targetPath)) {
             if (!$this->confirm("Module {$moduleName} already exists. Overwrite?")) {

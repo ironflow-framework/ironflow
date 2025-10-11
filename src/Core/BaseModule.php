@@ -1,279 +1,747 @@
 <?php
 
+declare(strict_types=1);
+
 namespace IronFlow\Core;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Artisan;
-use IronFlow\Contracts\ModuleInterface;
-use IronFlow\Contracts\RoutableInterface;
-use IronFlow\Contracts\ViewableInterface;
-use IronFlow\Contracts\ConfigurableInterface;
+use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\View;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
+use IronFlow\Contracts\ViewableInterface;
+use IronFlow\Contracts\RoutableInterface;
+use IronFlow\Contracts\MigratableInterface;
+use IronFlow\Contracts\BootableInterface;
+use IronFlow\Contracts\ConfigurableInterface;
+use IronFlow\Contracts\PublishableInterface;
+use IronFlow\Contracts\ExposableInterface;
+use IronFlow\Contracts\ExportableInterface;
 
 /**
  * BaseModule
  *
- * Abstract base class for IronFlow modules
- * Provides common functionality and sensible defaults
+ * Base class for all IronFlow modules. Extends Laravel ServiceProvider
+ * and provides concrete implementations for all activable interfaces.
  */
-abstract class BaseModule implements ModuleInterface
+abstract class BaseModule extends ServiceProvider
 {
-    protected string $modulePath;
-    protected string $moduleNamespace;
-    protected ?ModuleMetadata $_metadata = null;
-    protected Application $app;
+    /**
+     * @var ModuleMetaData Module metadata
+     */
+    protected ModuleMetaData $metadata;
 
-    public function __construct()
+    /**
+     * @var ModuleState Module state
+     */
+    protected ModuleState $state;
+
+    /**
+     * @var string Module base path
+     */
+    protected string $modulePath;
+
+    /**
+     * @var string Module name
+     */
+    protected string $moduleName;
+
+    /**
+     * Create a new module instance.
+     *
+     * @param \Illuminate\Contracts\Foundation\Application $app
+     */
+    public function __construct($app)
     {
-        $this->modulePath = $this->resolveModulePath();
-        $this->moduleNamespace = $this->resolveModuleNamespace();
-        $this->app = app();
+        parent::__construct($app);
+
+        $this->moduleName = $this->getModuleName();
+        $this->modulePath = $this->getModulePath();
+        $this->metadata = $this->createMetadata();
+        $this->state = new ModuleState();
     }
 
     /**
-     * Get module metadata
-     * Override this method to provide custom metadata
-     */
-    abstract public function metadata(): ModuleMetadata;
-
-    abstract public function expose(): array;
-
-    /**
-     * Register module services
+     * Register the module services.
+     *
+     * @return void
      */
     public function register(): void
     {
-        $this->registerConfig();
-        $this->registerViews();
-        $this->registerMigrations();
+        try {
+            $this->state->transitionTo(ModuleState::STATE_PRELOADED);
+
+            // Register configuration if module is configurable
+            if ($this instanceof ConfigurableInterface) {
+                $this->registerConfig();
+            }
+
+            // Register module-specific services
+            $this->registerServices();
+
+            $this->logEvent('registered', "Module {$this->moduleName} registered successfully");
+        } catch (\Throwable $e) {
+            $this->state->markAsFailed($e);
+            $this->logEvent('failed', "Module {$this->moduleName} failed to register: {$e->getMessage()}", 'error');
+            throw $e;
+        }
     }
 
     /**
-     * Boot module
+     * Bootstrap the module services.
+     *
+     * @return void
      */
     public function boot(): void
     {
-        $this->bootRoutes();
-        $this->bootConfig();
+        if (!$this->metadata->isEnabled()) {
+            return;
+        }
+
+        try {
+            $this->state->transitionTo(ModuleState::STATE_BOOTING);
+
+            // Register views if module is viewable
+            if ($this instanceof ViewableInterface) {
+                $this->registerViews();
+            }
+
+            // Register routes if module is routable
+            if ($this instanceof RoutableInterface) {
+                $this->registerRoutes();
+            }
+
+            // Register migrations if module is migratable
+            if ($this instanceof MigratableInterface) {
+                $this->registerMigrations();
+            }
+
+            // Register publishables if module is publishable
+            if ($this instanceof PublishableInterface) {
+                $this->registerPublishables();
+            }
+
+            // Execute custom boot logic if module is bootable
+            if ($this instanceof BootableInterface) {
+                $this->bootModule();
+            }
+
+            $this->state->transitionTo(ModuleState::STATE_BOOTED);
+            $this->logEvent('booted', "Module {$this->moduleName} booted successfully");
+        } catch (\Throwable $e) {
+            $this->state->markAsFailed($e);
+            $this->logEvent('failed', "Module {$this->moduleName} failed to boot: {$e->getMessage()}", 'error');
+            throw $e;
+        }
     }
 
     /**
-     * Get module path
+     * Get module name (must be implemented by child).
+     *
+     * @return string
      */
-    public function path(string $path = ''): string
+    abstract protected function getModuleName(): string;
+
+    /**
+     * Create module metadata.
+     *
+     * @return ModuleMetaData
+     */
+    abstract protected function createMetadata(): ModuleMetaData;
+
+    /**
+     * Register module-specific services.
+     * Override this method in child modules.
+     *
+     * @return void
+     */
+    protected function registerServices(): void
     {
-        return $this->modulePath . ($path ? DIRECTORY_SEPARATOR . $path : '');
+        // Override in child modules
     }
 
     /**
-     * Get module namespace
+     * Get module base path.
+     *
+     * @return string
      */
-    public function namespace(): string
-    {
-        return $this->moduleNamespace;
-    }
-
-    /**
-     * Resolve module path from class location
-     */
-    protected function resolveModulePath(): string
+    protected function getModulePath(): string
     {
         $reflection = new \ReflectionClass($this);
         return dirname($reflection->getFileName());
     }
 
     /**
-     * Resolve module namespace
+     * Get module metadata.
+     *
+     * @return ModuleMetaData
      */
-    protected function resolveModuleNamespace(): string
+    public function getMetadata(): ModuleMetaData
     {
-        return (new \ReflectionClass($this))->getNamespaceName();
+        return $this->metadata;
     }
 
     /**
-     * Register module configuration
+     * Get module state.
+     *
+     * @return ModuleState
      */
-    protected function registerConfig(): void
+    public function getState(): ModuleState
     {
-        if (!$this instanceof ConfigurableInterface) {
-            return;
-        }
+        return $this->state;
+    }
 
-        $configPath = $this->configPath();
-        if (file_exists($configPath)) {
-            $this->mergeConfig();
-        }
+    // ========================================================================
+    // ViewableInterface Implementation
+    // ========================================================================
+
+    /**
+     * Get view namespace.
+     *
+     * @return string
+     */
+    public function getViewNamespace(): string
+    {
+        return strtolower($this->moduleName);
     }
 
     /**
-     * Boot module configuration
+     * Get view paths.
+     *
+     * @return array
      */
-    protected function bootConfig(): void
+    public function getViewPaths(): array
     {
-        if (!$this instanceof ConfigurableInterface) {
-            return;
-        }
+        return [
+            $this->modulePath . '/Resources/views',
+        ];
+    }
 
-        $configPath = $this->configPath();
-        if (file_exists($configPath)) {
-            $publishes = [
-                $configPath => config_path($this->configKey() . '.php'),
-            ];
+    /**
+     * Register views.
+     *
+     * @return void
+     */
+    public function registerViews(): void
+    {
+        $viewPaths = $this->getViewPaths();
+        $namespace = $this->getViewNamespace();
 
-            if (method_exists($this, 'publishes')) {
-                $this->publishes($publishes, 'config');
+        foreach ($viewPaths as $path) {
+            if (File::isDirectory($path)) {
+                $this->loadViewsFrom($path, $namespace);
             }
         }
     }
 
-    /**
-     * Register module views
-     */
-    protected function registerViews(): void
-    {
-        if (!$this instanceof ViewableInterface) {
-            return;
-        }
-
-        $viewsPath = $this->viewsPath();
-        if (is_dir($viewsPath)) {
-            View::addNamespace($this->viewNamespace(), $viewsPath);
-        }
-    }
+    // ========================================================================
+    // RoutableInterface Implementation
+    // ========================================================================
 
     /**
-     * Boot module routes
+     * Get route files.
+     *
+     * @return array
      */
-    protected function bootRoutes(): void
+    public function getRouteFiles(): array
     {
-        if (!$this instanceof RoutableInterface) {
-            return;
-        }
-
-        $this->registerRoutes();
+        return [
+            'web' => $this->modulePath . '/Routes/web.php',
+            'api' => $this->modulePath . '/Routes/api.php',
+        ];
     }
 
     /**
-     * Register module migrations
+     * Get route middleware.
+     *
+     * @return array
      */
-    protected function registerMigrations(): void
+    public function getRouteMiddleware(): array
     {
-        $migrationsPath = $this->path('Database/migrations');
-
-        if (is_dir($migrationsPath)) {
-            $this->loadMigrationsFrom($migrationsPath);
-        }
+        return [
+            'web' => ['web'],
+            'api' => ['api'],
+        ];
     }
 
     /**
-     * Load migrations from path
+     * Get route prefix.
+     *
+     * @return string|null
      */
-    protected function loadMigrationsFrom(string $path): void
+    public function getRoutePrefix(): ?string
     {
-        if (method_exists($this, 'loadMigrationsFrom')) {
-            app()->make('migrator')->path($path);
-        }
+        return strtolower($this->moduleName);
     }
 
     /**
-     * Helper to load routes
+     * Register routes.
+     *
+     * @return void
      */
-    protected function loadRoutesFrom(string $path): void
+    public function registerRoutes(): void
     {
-        if (file_exists($path)) {
-            Route::middleware('web')->group($path);
-        }
-    }
+        $routeFiles = $this->getRouteFiles();
+        $middleware = $this->getRouteMiddleware();
+        $prefix = $this->getRoutePrefix();
 
-    /**
-     * Helper to load API routes
-     */
-    protected function loadApiRoutesFrom(string $path): void
-    {
-        if (file_exists($path)) {
-            Route::prefix('api')
-                ->middleware('api')
-                ->group($path);
-        }
-    }
-
-    public function call(string $command, array $args = []): void
-    {
-        Artisan::call($command, $args);
-    }
-
-    public function publishes(array $paths, ?string $group = null): void
-    {
-        if (function_exists('app') && method_exists(app(), 'make')) {
-            $publisher = app()->make('Illuminate\\Foundation\\Console\\VendorPublishCommand');
-            if ($publisher && method_exists($publisher, 'publish')) {
-                $publisher->publish($paths, $group);
+        foreach ($routeFiles as $type => $file) {
+            if (File::exists($file)) {
+                Route::middleware($middleware[$type] ?? [])
+                    ->prefix($type === 'api' ? 'api/' . $prefix : $prefix)
+                    ->group($file);
             }
         }
     }
 
+    // ========================================================================
+    // MigratableInterface Implementation
+    // ========================================================================
+
     /**
-     * Get module name from class name
+     * Get migration path.
+     *
+     * @return string
      */
-    protected function getModuleName(): string
+    public function getMigrationPath(): string
     {
-        $className = class_basename($this);
-        return str_replace('Module', '', $className);
+        return $this->modulePath . '/Database/Migrations';
     }
 
     /**
-     * Convert module name to snake case
+     * Get migration prefix.
+     *
+     * @return string
      */
-    protected function getModuleSlug(): string
+    public function getMigrationPrefix(): string
     {
-        return Str::snake($this->getModuleName());
+        return strtolower($this->moduleName) . '_';
     }
 
     /**
-     * Default config path implementation
+     * Register migrations.
+     *
+     * @return void
      */
-    public function configPath(): string
+    public function registerMigrations(): void
     {
-        return $this->path('config/' . $this->getModuleSlug() . '.php');
+        $path = $this->getMigrationPath();
+
+        if (File::isDirectory($path)) {
+            $this->loadMigrationsFrom($path);
+        }
     }
 
     /**
-     * Default config key implementation
+     * Run migrations.
+     *
+     * @return void
      */
-    public function configKey(): string
+    public function runMigrations(): void
     {
-        return $this->getModuleSlug();
+        Artisan::call('migrate', [
+            '--path' => $this->getMigrationPath(),
+            '--force' => true,
+        ]);
     }
 
     /**
-     * Default views path implementation
+     * Rollback migrations.
+     *
+     * @return void
      */
-    public function viewsPath(): string
+    public function rollbackMigrations(): void
     {
-        return $this->path('Resources/views');
+        Artisan::call('migrate:rollback', [
+            '--path' => $this->getMigrationPath(),
+            '--force' => true,
+        ]);
+    }
+
+    // ========================================================================
+    // ConfigurableInterface Implementation
+    // ========================================================================
+
+    /**
+     * Get config path.
+     *
+     * @return string
+     */
+    public function getConfigPath(): string
+    {
+        return $this->modulePath . '/config/' . strtolower($this->moduleName) . '.php';
     }
 
     /**
-     * Default view namespace implementation
+     * Get config key.
+     *
+     * @return string
      */
-    public function viewNamespace(): string
+    public function getConfigKey(): string
     {
-        return $this->getModuleSlug();
+        return strtolower($this->moduleName);
     }
 
     /**
-     * Merge config helper
+     * Register config.
+     *
+     * @return void
+     */
+    public function registerConfig(): void
+    {
+        $configPath = $this->getConfigPath();
+
+        if (File::exists($configPath)) {
+            $this->mergeConfigFrom($configPath, $this->getConfigKey());
+        }
+    }
+
+    /**
+     * Merge config.
+     *
+     * @return void
      */
     public function mergeConfig(): void
     {
-        config()->set(
-            $this->configKey(),
-            array_merge(
-                require $this->configPath(),
-                config($this->configKey(), [])
-            )
-        );
+        $this->registerConfig();
+    }
+
+    // ========================================================================
+    // PublishableInterface Implementation
+    // ========================================================================
+
+    /**
+     * Get publishable assets.
+     *
+     * @return array
+     */
+    public function getPublishableAssets(): array
+    {
+        return [
+            $this->modulePath . '/Resources/css' => public_path('vendor/' . strtolower($this->moduleName) . '/css'),
+            $this->modulePath . '/Resources/js' => public_path('vendor/' . strtolower($this->moduleName) . '/js'),
+        ];
+    }
+
+    /**
+     * Get publishable config.
+     *
+     * @return array
+     */
+    public function getPublishableConfig(): array
+    {
+        return [
+            $this->getConfigPath() => config_path(strtolower($this->moduleName) . '.php'),
+        ];
+    }
+
+    /**
+     * Get publishable views.
+     *
+     * @return array
+     */
+    public function getPublishableViews(): array
+    {
+        return [
+            $this->modulePath . '/Resources/views' => resource_path('views/vendor/' . strtolower($this->moduleName)),
+        ];
+    }
+
+    /**
+     * Register publishables.
+     *
+     * @return void
+     */
+    public function registerPublishables(): void
+    {
+        if ($this->app->runningInConsole()) {
+            // Publish config
+            $this->publishes($this->getPublishableConfig(), $this->moduleName . '-config');
+
+            // Publish views
+            $this->publishes($this->getPublishableViews(), $this->moduleName . '-views');
+
+            // Publish assets
+            $this->publishes($this->getPublishableAssets(), $this->moduleName . '-assets');
+        }
+    }
+
+    // ========================================================================
+    // ExposableInterface Implementation
+    // ========================================================================
+
+    /**
+     * Expose services.
+     *
+     * @return array
+     */
+    public function expose(): array
+    {
+        return [
+            'public' => $this->getExposedPublic(),
+            'linked' => [],
+        ];
+    }
+
+    /**
+     * Get exposed public services.
+     *
+     * @return array
+     */
+    public function getExposedPublic(): array
+    {
+        return [];
+    }
+
+    /**
+     * Get exposed services for specific module.
+     *
+     * @param string $moduleName
+     * @return array
+     */
+    public function getExposedForModule(string $moduleName): array
+    {
+        return [];
+    }
+
+    // ========================================================================
+    // ExportableInterface Implementation
+    // ========================================================================
+
+    /**
+     * Export module for Packagist.
+     *
+     * @return array
+     */
+    public function export(): array
+    {
+        return [
+            'files' => [
+                $this->modulePath . '/Http',
+                $this->modulePath . '/Services',
+                $this->modulePath . '/Models',
+            ],
+            'assets' => [
+                $this->modulePath . '/Resources',
+            ],
+            'config' => [
+                $this->getConfigPath(),
+            ],
+            'stubs' => [],
+            'exclude' => [
+                '*.log',
+                '.DS_Store',
+                'node_modules',
+            ],
+        ];
+    }
+
+    /**
+     * Get package name.
+     *
+     * @return string
+     */
+    public function getPackageName(): string
+    {
+        return 'vendor/' . strtolower($this->moduleName);
+    }
+
+    /**
+     * Get package description.
+     *
+     * @return string
+     */
+    public function getPackageDescription(): string
+    {
+        return $this->metadata->getDescription();
+    }
+
+    /**
+     * Get package dependencies.
+     *
+     * @return array
+     */
+    public function getPackageDependencies(): array
+    {
+        return [
+            'php' => '^8.2',
+            'illuminate/support' => '^12.0',
+            'ironflow/ironflow' => '^1.0',
+        ];
+    }
+
+    /**
+     * Get package autoload.
+     *
+     * @return array
+     */
+    public function getPackageAutoload(): array
+    {
+        return [
+            'psr-4' => [
+                'Modules\\' . $this->moduleName . '\\' => 'src/',
+            ],
+        ];
+    }
+
+    // ========================================================================
+    // Lifecycle Methods
+    // ========================================================================
+
+    /**
+     * Install the module.
+     *
+     * @return void
+     */
+    public function install(): void
+    {
+        if ($this instanceof MigratableInterface) {
+            $this->runMigrations();
+        }
+
+        $this->logEvent('installed', "Module {$this->moduleName} installed");
+    }
+
+    /**
+     * Enable the module.
+     *
+     * @return void
+     */
+    public function enable(): void
+    {
+        $this->metadata->enable();
+        $this->logEvent('enabled', "Module {$this->moduleName} enabled");
+    }
+
+    /**
+     * Disable the module.
+     *
+     * @return void
+     */
+    public function disable(): void
+    {
+        $this->metadata->disable();
+        $this->state->transitionTo(ModuleState::STATE_DISABLED);
+        $this->logEvent('disabled', "Module {$this->moduleName} disabled");
+    }
+
+    /**
+     * Update the module.
+     *
+     * @return void
+     */
+    public function update(): void
+    {
+        if ($this instanceof MigratableInterface) {
+            $this->runMigrations();
+        }
+
+        $this->logEvent('updated', "Module {$this->moduleName} updated");
+    }
+
+    /**
+     * Uninstall the module.
+     *
+     * @return void
+     */
+    public function uninstall(): void
+    {
+        if ($this instanceof MigratableInterface) {
+            $this->rollbackMigrations();
+        }
+
+        $this->logEvent('uninstalled', "Module {$this->moduleName} uninstalled");
+    }
+
+    // ========================================================================
+    // Logging
+    // ========================================================================
+
+    /**
+     * Log module event.
+     *
+     * @param string $event
+     * @param string $message
+     * @param string $level
+     * @return void
+     */
+    protected function logEvent(string $event, string $message, string $level = 'info'): void
+    {
+        if (!config('ironflow.logging.enabled', true)) {
+            return;
+        }
+
+        $logEvents = config('ironflow.logging.log_events', []);
+        if (!($logEvents[$event] ?? false)) {
+            return;
+        }
+
+        $channel = config('ironflow.logging.channel', 'stack');
+        Log::channel($channel)->$level("[IronFlow] {$message}", [
+            'module' => $this->moduleName,
+            'event' => $event,
+            'state' => $this->state->getCurrentState(),
+        ]);
+    }
+
+    /**
+     * Get seeder path.
+     *
+     * @return string
+     */
+    public function getSeederPath(): string
+    {
+        return $this->modulePath . '/Database/Seeders';
+    }
+
+    /**
+     * Get seeders.
+     *
+     * @return array
+     */
+    public function getSeeders(): array
+    {
+        return [];
+    }
+
+    /**
+     * Get seeder priority.
+     *
+     * @return int
+     */
+    public function getSeederPriority(): int
+    {
+        return 50;
+    }
+
+    /**
+     * Seed the module.
+     *
+     * @param string|null $seederClass
+     * @return void
+     */
+    public function seed(?string $seederClass = null): void
+    {
+        $namespace = config('ironflow.namespace', 'Modules');
+
+        if ($seederClass) {
+            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seederClass}";
+
+            if (class_exists($fullClass)) {
+                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
+            }
+
+            return;
+        }
+
+        $seeders = $this->getSeeders();
+
+        foreach ($seeders as $seeder) {
+            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seeder}";
+
+            if (class_exists($fullClass)) {
+                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
+            }
+        }
     }
 }
