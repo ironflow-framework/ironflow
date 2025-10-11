@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Using Laravel Cache system
 - Exceptions classes
 - Update `IronFlowServiceProvider`
+- Updated README and documentation to reflect new patterns and best practices.
 
 #### Removed
 
