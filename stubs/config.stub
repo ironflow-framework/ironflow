@@ -1,0 +1,18 @@
+<?php
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | {{name}} Module Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration options for the {{name}} module.
+    |
+    */
+
+    'enabled' => env('{{upper_name}}_ENABLED', true),
+
+    'options' => [
+        // Module-specific options
+    ],
+];
