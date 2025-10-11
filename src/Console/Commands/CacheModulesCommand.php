@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
-use IronFlow\Core\Anvil;
+use IronFlow\Core\BaseModule;
+use IronFlow\Facades\Anvil;
 
 /**
  * CacheModulesCommand
@@ -17,25 +19,19 @@ class CacheModulesCommand extends Command
 
     protected $description = 'Cache the discovered modules for faster boot';
 
-    public function handle(Anvil $anvil): int
+    public function handle(): int
     {
-        $cachePath = storage_path('framework/cache/ironflow');
-        File::ensureDirectoryExists($cachePath);
+        $modules = Anvil::getModules();
 
-        $modules = $anvil->getModules()->map(function ($moduleData) {
-            return [
-                'class' => get_class($moduleData['instance']),
-                'metadata' => $moduleData['metadata']->toArray(),
-            ];
-        });
-
-        $cacheFile = $cachePath . '/modules.php';
-        $content = '<?php return ' . var_export($modules->toArray(), true) . ';';
-
-        File::put($cacheFile, $content);
+        if (config('ironflow.cache.enabled', true)) {
+            Cache::put(
+                config('ironflow.cache.key', 'ironflow.modules'),
+                $modules->keys()->toArray(),
+                config('ironflow.cache.ttl', 3600)
+            );
+        }
 
         $this->info('Modules cached successfully!');
-        $this->line("Cache file: {$cacheFile}");
 
         return self::SUCCESS;
     }

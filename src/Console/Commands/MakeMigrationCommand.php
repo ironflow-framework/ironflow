@@ -6,6 +6,7 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
@@ -21,13 +22,6 @@ class MakeMigrationCommand extends Command
 
     protected $description = 'Create a new migration in a module';
 
-    protected Filesystem $files;
-
-    public function __construct(Filesystem $files)
-    {
-        parent::__construct();
-        $this->files = $files;
-    }
 
     public function handle(): int
     {
@@ -36,87 +30,34 @@ class MakeMigrationCommand extends Command
         $create = $this->option('create');
         $table = $this->option('table');
 
-        $modulePath = app_path("Modules/{$module}");
+        $modulePath = config('ironflow.path') . '/' . $module;
 
-        if (!$this->files->exists($modulePath)) {
-            $this->error("Module {$module} does not exist!");
-            return self::FAILURE;
+        $stub = $this->getStub('migration');
+        $tableName = Str::snake(Str::plural($name));
+        $timestamp = date('Y_m_d_His');
+
+        if ($create) {
+            $className = 'Create' . Str::studly($tableName) . 'Table';
+            $filePath = $modulePath . '/Database/Migrations/' . $timestamp . '_create_' . $tableName . '_table.php';
         }
 
-        $migrationPath = $modulePath . "/Database/migrations";
-        $this->files->ensureDirectoryExists($migrationPath);
+        if ($table) {
+            $className = 'Modify' . Str::studly($tableName) . 'Table';
+            $filePath = $modulePath . '/Database/Migrations/' . $timestamp . '_create_' . $tableName . '_table.php';
+        }
 
-        $fileName = date('Y_m_d_His') . '_' . $name . '.php';
-        $path = $migrationPath . '/' . $fileName;
-
-        $stub = $create ? $this->getCreateStub() : $this->getStub();
-        $tableName = $create ?? $table ?? 'table';
-        $className = Str::studly($name);
 
         $content = str_replace(
-            ['{{class}}', '{{table}}'],
+            ['{{className}}', '{{tableName}}'],
             [$className, $tableName],
             $stub
         );
 
-        $this->files->put($path, $content);
-        $this->info("Migration {$fileName} created successfully!");
+        File::put(
+            $filePath,
+            $content
+        );
 
         return self::SUCCESS;
-    }
-
-    protected function getCreateStub(): string
-    {
-        return <<<'PHP'
-<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::create('{{table}}', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('{{table}}');
-    }
-};
-PHP;
-    }
-
-    protected function getStub(): string
-    {
-        return <<<'PHP'
-<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::table('{{table}}', function (Blueprint $table) {
-            //
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::table('{{table}}', function (Blueprint $table) {
-            //
-        });
-    }
-};
-PHP;
     }
 }
