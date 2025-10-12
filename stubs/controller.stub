@@ -1,6 +1,6 @@
 <?php
 
-namespace {{namespace}}\{{name}}\Http\Controllers;
+namespace {{namespace}}\{{module}}\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -12,7 +12,7 @@ class {{name}}Controller extends Controller
      */
     public function index()
     {
-        return view('{{lower_name}}::index');
+        return view('{{lower_module}}::{{lower_name}}.index');
     }
 
     /**
@@ -20,7 +20,7 @@ class {{name}}Controller extends Controller
      */
     public function create()
     {
-        return view('{{lower_name}}::create');
+        return view('{{lower_module}}::{{lower_name}}.create');
     }
 
     /**
@@ -28,7 +28,15 @@ class {{name}}Controller extends Controller
      */
     public function store(Request $request)
     {
+        // Validation
+        $validated = $request->validate([
+            // Add your validation rules here
+        ]);
+
         // Store logic
+
+        return redirect()->route('{{lower_module}}.{{lower_name}}.index')
+            ->with('success', '{{name}} created successfully');
     }
 
     /**
@@ -36,7 +44,7 @@ class {{name}}Controller extends Controller
      */
     public function show(string $id)
     {
-        return view('{{lower_name}}::show', compact('id'));
+        return view('{{lower_module}}::{{lower_name}}.show', compact('id'));
     }
 
     /**
@@ -44,7 +52,7 @@ class {{name}}Controller extends Controller
      */
     public function edit(string $id)
     {
-        return view('{{lower_name}}::edit', compact('id'));
+        return view('{{lower_module}}::{{lower_name}}.edit', compact('id'));
     }
 
     /**
@@ -52,7 +60,15 @@ class {{name}}Controller extends Controller
      */
     public function update(Request $request, string $id)
     {
+        // Validation
+        $validated = $request->validate([
+            // Add your validation rules here
+        ]);
+
         // Update logic
+
+        return redirect()->route('{{lower_module}}.{{lower_name}}.show', $id)
+            ->with('success', '{{name}} updated successfully');
     }
 
     /**
@@ -61,5 +77,8 @@ class {{name}}Controller extends Controller
     public function destroy(string $id)
     {
         // Delete logic
+
+        return redirect()->route('{{lower_module}}.{{lower_name}}.index')
+            ->with('success', '{{name}} deleted successfully');
     }
 }

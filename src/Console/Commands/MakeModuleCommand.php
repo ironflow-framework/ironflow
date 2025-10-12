@@ -121,7 +121,7 @@ class MakeModuleCommand extends Command
         $namespace = config('ironflow.namespace', 'Modules');
        
         $content = str_replace(
-            ['{{namespace}}', '{{name}}', '{{interfaces}}'],
+            ['{{namespace}}', '{{name}}'],
             [$namespace, $name],
             $stub
         );
@@ -141,8 +141,8 @@ class MakeModuleCommand extends Command
         $stub = $this->getStub('route');
         $namespace = config('ironflow.namespace', 'Modules');
         $content = str_replace(
-            ['{{namespace}}', '{{name}}'],
-            [$namespace, $name],
+            ['{{namespace}}', '{{name}}', '{{lower_name}}'],
+            [$namespace, $name, Str::lower($name)],
             $stub
         );
         File::put($path . '/Routes/web.php', $content);

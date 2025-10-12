@@ -4,36 +4,40 @@ declare(strict_types=1);
 
 namespace IronFlow;
 
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\ServiceProvider;
-use IronFlow\Console\Commands\CacheClearCommand;
-use IronFlow\Console\Commands\CacheModulesCommand;
-use IronFlow\Console\Commands\DiscoverCommand;
 use IronFlow\Core\Anvil;
 use IronFlow\Http\Middleware\LazyLoadModules;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\ServiceProvider;
+
 use IronFlow\Support\LazyLoader;
 use IronFlow\Support\ModuleRegistry;
 use IronFlow\Support\DependencyResolver;
 use IronFlow\Support\ServiceExposer;
 use IronFlow\Support\ConflictDetector;
+
 use IronFlow\Console\Commands\MakeModuleCommand;
 use IronFlow\Console\Commands\PublishModuleCommand;
 use IronFlow\Console\Commands\EnableModuleCommand;
 use IronFlow\Console\Commands\DisableModuleCommand;
 use IronFlow\Console\Commands\HotReloadStatsCommand;
 use IronFlow\Console\Commands\HotReloadWatchCommand;
-use IronFlow\Console\Commands\InfoCommand;
+use IronFlow\Console\Commands\InfoModuleCommand;
 use IronFlow\Console\Commands\InstallModuleCommand;
 use IronFlow\Console\Commands\ListModulesCommand;
-use IronFlow\Console\Commands\MakeControllerCommand;
-use IronFlow\Console\Commands\MakeMigrationCommand;
-use IronFlow\Console\Commands\MakeModelCommand;
-use IronFlow\Console\Commands\MakeServiceCommand;
 use IronFlow\Console\Commands\LazyLoadStatsCommand;
 use IronFlow\Console\Commands\LazyLoadWarmupCommand;
 use IronFlow\Console\Commands\LazyLoadClearCommand;
 use IronFlow\Console\Commands\LazyLoadTestCommand;
 use IronFlow\Console\Commands\LazyLoadBenchmarkCommand;
+use IronFlow\Console\Commands\CacheClearCommand;
+use IronFlow\Console\Commands\CacheModulesCommand;
+use IronFlow\Console\Commands\DiscoverCommand;
+use IronFlow\Console\Commands\MakeModuleControllerCommand;
+use IronFlow\Console\Commands\MakeModuleFactoryCommand;
+use IronFlow\Console\Commands\MakeModuleMigrationCommand;
+use IronFlow\Console\Commands\MakeModuleModelCommand;
+use IronFlow\Console\Commands\MakeModuleRepositoryCommand;
+use IronFlow\Console\Commands\MakeModuleServiceCommand;
 use IronFlow\Console\Commands\SeedModuleCommand;
 
 /**
@@ -122,11 +126,15 @@ class IronFlowServiceProvider extends ServiceProvider
                 DisableModuleCommand::class,
                 DiscoverCommand::class,
                 ListModulesCommand::class,
-                InfoCommand::class,
-                MakeModelCommand::class,
-                MakeMigrationCommand::class,
-                MakeControllerCommand::class,
-                MakeServiceCommand::class,
+                InfoModuleCommand::class,
+
+                MakeModuleModelCommand::class,
+                MakeModuleMigrationCommand::class,
+                MakeModuleFactoryCommand::class,
+                MakeModuleControllerCommand::class,
+                MakeModuleServiceCommand::class,
+                MakeModuleRepositoryCommand::class,
+
                 CacheModulesCommand::class,
                 CacheClearCommand::class,
                 LazyLoadClearCommand::class,
