@@ -39,7 +39,7 @@ use IronFlow\Console\Commands\MakeModuleModelCommand;
 use IronFlow\Console\Commands\MakeModuleRepositoryCommand;
 use IronFlow\Console\Commands\MakeModuleServiceCommand;
 use IronFlow\Console\Commands\SeedModuleCommand;
-use IronFlow\Console\PermissionsCommand;
+use IronFlow\Console\Commands\PermissionsCommand;
 
 /**
  * IronFlowServiceProvider
