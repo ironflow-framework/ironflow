@@ -78,7 +78,9 @@ abstract class BaseModule extends ServiceProvider
     public function register(): void
     {
         try {
-            $this->state->transitionTo(ModuleState::STATE_PRELOADED);
+            if ($this->state->isRegistered()) {
+                $this->state->transitionTo(ModuleState::STATE_PRELOADED);
+            }
 
             // Register configuration if module is configurable
             if ($this instanceof ConfigurableInterface) {
@@ -92,7 +94,14 @@ abstract class BaseModule extends ServiceProvider
         } catch (\Throwable $e) {
             $this->state->markAsFailed($e);
             $this->logEvent('failed', "Module {$this->moduleName} failed to register: {$e->getMessage()}", 'error');
-            throw $e;
+
+            Log::error(
+                "[IronFlow] Module registration failed: {$this->moduleName}",
+                [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]
+            );
         }
     }
 
@@ -108,7 +117,9 @@ abstract class BaseModule extends ServiceProvider
         }
 
         try {
-            $this->state->transitionTo(ModuleState::STATE_BOOTING);
+            if ($this->state->isPreloaded()) {
+                $this->state->transitionTo(ModuleState::STATE_BOOTING);
+            }
 
             // Register views if module is viewable
             if ($this instanceof ViewableInterface) {
@@ -135,12 +146,21 @@ abstract class BaseModule extends ServiceProvider
                 $this->bootModule();
             }
 
-            $this->state->transitionTo(ModuleState::STATE_BOOTED);
+            if ($this->state->isBooting()) {
+                $this->state->transitionTo(ModuleState::STATE_BOOTED);
+            }
             $this->logEvent('booted', "Module {$this->moduleName} booted successfully");
         } catch (\Throwable $e) {
             $this->state->markAsFailed($e);
             $this->logEvent('failed', "Module {$this->moduleName} failed to boot: {$e->getMessage()}", 'error');
-            throw $e;
+            
+            Log::error(
+                "[IronFlow] Module boot failed: {$this->moduleName}",
+                [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]
+            );
         }
     }
 
