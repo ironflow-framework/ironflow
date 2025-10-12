@@ -21,7 +21,7 @@ use IronFlow\Contracts\ExposableInterface;
  *
  * Manages the complete lifecycle of IronFlow modules including discovery,
  * registration, dependency resolution, service exposure, and conflict detection.
- * 
+ *
  * @author Aure Dulvresse
  * @package IronFlow/Core
  * @since 1.0.0
@@ -181,6 +181,9 @@ class Anvil
         if ($this->hasModule($moduleName)) {
             throw new ModuleException("Module {$moduleName} is already registered");
         }
+
+        // Call register() method to transition state properly
+        $module->register();
 
         // Register in registry
         $this->registry->register($moduleName, $module);
