@@ -6,7 +6,7 @@ Thank you for considering contributing to IronFlow! This guide will help you get
 
 ### Prerequisites
 
-- PHP 8.3 or higher
+- PHP 8.2 or higher
 - Composer
 - Laravel 12
 - Git
