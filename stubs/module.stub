@@ -4,9 +4,9 @@ namespace {{namespace}}\{{name}};
 
 use IronFlow\Core\BaseModule;
 use IronFlow\Core\ModuleMetaData;
-use IronFlow\Contracts\BootableInterface{{interfaces}};
+use IronFlow\Contracts\BootableInterface;
 
-class {{name}}Module extends BaseModule implements BootableInterface{{interfaces}}
+class {{name}}Module extends BaseModule implements BootableInterface
 {
     /**
      * Get module name.
