@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace IronFlow\Console;
+namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use IronFlow\Permissions\ModulePermissionSystem;
