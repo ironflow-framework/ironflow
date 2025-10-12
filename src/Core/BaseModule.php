@@ -23,6 +23,10 @@ use IronFlow\Contracts\ExportableInterface;
  *
  * Base class for all IronFlow modules. Extends Laravel ServiceProvider
  * and provides concrete implementations for all activable interfaces.
+ * 
+ * @author Aure Dulvresse
+ * @package IronFlow/Core
+ * @since 1.0.0
  */
 abstract class BaseModule extends ServiceProvider
 {
