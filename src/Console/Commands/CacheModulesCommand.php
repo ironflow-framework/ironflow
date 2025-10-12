@@ -21,17 +21,15 @@ class CacheModulesCommand extends Command
 
     public function handle(): int
     {
-        $modules = Anvil::getModules();
+         if (config('ironflow.cache.enabled', true)) {
 
-        if (config('ironflow.cache.enabled', true)) {
-            Cache::put(
-                config('ironflow.cache.key', 'ironflow.modules'),
-                $modules->keys()->toArray(),
-                config('ironflow.cache.ttl', 3600)
-            );
-        }
+        Anvil::discover();
 
         $this->info('Modules cached successfully!');
+
+        } else {
+            $this->info('Ironflow cache not allowed.');
+        }
 
         return self::SUCCESS;
     }
