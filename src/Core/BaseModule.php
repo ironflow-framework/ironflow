@@ -23,7 +23,7 @@ use IronFlow\Contracts\ExportableInterface;
  *
  * Base class for all IronFlow modules. Extends Laravel ServiceProvider
  * and provides concrete implementations for all activable interfaces.
- * 
+ *
  * @author Aure Dulvresse
  * @package IronFlow/Core
  * @since 1.0.0
@@ -297,7 +297,7 @@ abstract class BaseModule extends ServiceProvider
         foreach ($routeFiles as $type => $file) {
             if (File::exists($file)) {
                 Route::middleware($middleware[$type] ?? [])
-                    ->prefix($type === 'api' ? 'api/' . $prefix : $prefix)
+                    ->prefix($type === 'api' ? "api/$prefix" : $prefix)
                     ->group($file);
             }
         }
@@ -314,7 +314,7 @@ abstract class BaseModule extends ServiceProvider
      */
     public function getMigrationPath(): string
     {
-        return $this->modulePath . '/Database/Migrations';
+        return "$this->modulePath/Database/Migrations";
     }
 
     /**
