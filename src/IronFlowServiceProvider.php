@@ -62,31 +62,36 @@ class IronFlowServiceProvider extends ServiceProvider
         );
 
         // Register support classes
-        $this->app->singleton(ModuleRegistry::class, function () {
-            return new ModuleRegistry();
-        });
+        $this->app->singleton(
+            ModuleRegistry::class,
+            fn() => new ModuleRegistry()
+        );
 
-        $this->app->singleton(DependencyResolver::class, function () {
-            return new DependencyResolver();
-        });
+        $this->app->singleton(
+            DependencyResolver::class,
+            fn() => new DependencyResolver()
+        );
 
-        $this->app->singleton(ServiceExposer::class, function () {
-            return new ServiceExposer();
-        });
+        $this->app->singleton(
+            ServiceExposer::class,
+            fn() =>  new ServiceExposer()
+        );
 
-        $this->app->singleton(ConflictDetector::class, function () {
-            return new ConflictDetector();
-        });
+        $this->app->singleton(
+            ConflictDetector::class,
+            fn() => new ConflictDetector()
+        );
 
         // Register Anvil
-        $this->app->singleton('ironflow.anvil', function ($app) {
-            return new Anvil(
+        $this->app->singleton(
+            'ironflow.anvil',
+            fn($app) => new Anvil(
                 $app->make(ModuleRegistry::class),
                 $app->make(DependencyResolver::class),
                 $app->make(ServiceExposer::class),
                 $app->make(ConflictDetector::class)
-            );
-        });
+            )
+        );
 
         $this->app->alias('ironflow.anvil', Anvil::class);
 
@@ -148,7 +153,7 @@ class IronFlowServiceProvider extends ServiceProvider
                 SeedModuleCommand::class,
 
                 PermissionsCommand::class,
-                
+
             ]);
         }
 
@@ -159,7 +164,7 @@ class IronFlowServiceProvider extends ServiceProvider
             $anvil = $this->app->make('ironflow.anvil');
             $anvil->discover();
 
-             // Register migrations for all modules BEFORE booting
+            // Register migrations for all modules BEFORE booting
             $this->registerAllModuleMigrations($anvil);
 
             // Use lazy loading if enabled
@@ -194,7 +199,7 @@ class IronFlowServiceProvider extends ServiceProvider
             // Check if module implements MigratableInterface
             if ($module instanceof \IronFlow\Contracts\MigratableInterface) {
                 $migrationPath = $module->getMigrationPath();
-                
+
                 if (File::isDirectory($migrationPath)) {
                     $this->loadMigrationsFrom($migrationPath);
                 }
