@@ -39,6 +39,7 @@ use IronFlow\Console\Commands\MakeModuleModelCommand;
 use IronFlow\Console\Commands\MakeModuleRepositoryCommand;
 use IronFlow\Console\Commands\MakeModuleServiceCommand;
 use IronFlow\Console\Commands\SeedModuleCommand;
+use IronFlow\Console\PermissionsCommand;
 
 /**
  * IronFlowServiceProvider
@@ -145,6 +146,8 @@ class IronFlowServiceProvider extends ServiceProvider
                 HotReloadWatchCommand::class,
                 HotReloadStatsCommand::class,
                 SeedModuleCommand::class,
+
+                PermissionsCommand::class,
                 
             ]);
         }

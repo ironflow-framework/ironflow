@@ -659,6 +659,38 @@ abstract class BaseModule extends ServiceProvider
     }
 
     // ========================================================================
+    // PermissionInterface Implementation
+    // ========================================================================
+
+
+    /**
+     * Get permissions
+     * @return array
+     */
+    public function getPermissions(): array
+    {
+        return [];
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        $permissions = $this->getPermissions();
+        return isset($permissions[$permission]);
+    }
+
+    public function grantPermission(string $permission, string|array $roles): void
+    {
+        app(\IronFlow\Permissions\ModulePermissionSystem::class)
+            ->grant($this->moduleName, $permission, $roles);
+    }
+
+    public function revokePermission(string $permission, string|array $roles): void
+    {
+        app(\IronFlow\Permissions\ModulePermissionSystem::class)
+            ->revoke($this->moduleName, $permission, $roles);
+    }
+
+    // ========================================================================
     // Lifecycle Methods
     // ========================================================================
 
