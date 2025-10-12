@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace IronFlow;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 use IronFlow\Console\Commands\CacheClearCommand;
 use IronFlow\Console\Commands\CacheModulesCommand;
@@ -147,6 +148,9 @@ class IronFlowServiceProvider extends ServiceProvider
             $anvil = $this->app->make('ironflow.anvil');
             $anvil->discover();
 
+             // Register migrations for all modules BEFORE booting
+            $this->registerAllModuleMigrations($anvil);
+
             // Use lazy loading if enabled
             if (config('ironflow.lazy_load.enabled', true)) {
                 $lazyLoader = $this->app->make(LazyLoader::class);
@@ -161,6 +165,28 @@ class IronFlowServiceProvider extends ServiceProvider
             } else {
                 // Boot all modules immediately (traditional way)
                 $anvil->bootAll();
+            }
+        }
+    }
+
+    /**
+     * Register migrations for all modules.
+     *
+     * @param Anvil $anvil
+     * @return void
+     */
+    protected function registerAllModuleMigrations(Anvil $anvil): void
+    {
+        $modules = $anvil->getModules();
+
+        foreach ($modules as $module) {
+            // Check if module implements MigratableInterface
+            if ($module instanceof \IronFlow\Contracts\MigratableInterface) {
+                $migrationPath = $module->getMigrationPath();
+                
+                if (File::isDirectory($migrationPath)) {
+                    $this->loadMigrationsFrom($migrationPath);
+                }
             }
         }
     }
