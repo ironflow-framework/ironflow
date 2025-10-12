@@ -164,6 +164,13 @@ class IronFlowServiceProvider extends ServiceProvider
             $anvil = $this->app->make('ironflow.anvil');
             $anvil->discover();
 
+            // Register each module as a service provider in Laravel
+            $modules = $anvil->getModules();
+
+            foreach ($modules as $name => $module) {
+                $this->app->register($module);
+            }
+
             // Register migrations for all modules BEFORE booting
             $this->registerAllModuleMigrations($anvil);
 
