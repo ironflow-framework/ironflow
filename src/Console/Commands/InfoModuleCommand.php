@@ -10,7 +10,7 @@ use IronFlow\Facades\Anvil;
 /**
  * InfoCommand
  */
-class InfoCommand extends Command
+class InfoModuleCommand extends Command
 {
     protected $signature = 'ironflow:info {module : The module name}';
 

@@ -11,8 +11,10 @@ use Illuminate\Support\Collection;
  *
  * Encapsulates all metadata for a module including dependencies,
  * versions, authors, and configuration.
+ * 
  * @author Aure Dulvresse
- * @package IronFlow\Core
+ * @package IronFlow/Core
+ * @since 1.0.0
  */
 class ModuleMetaData
 {

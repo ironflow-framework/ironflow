@@ -1,34 +1,35 @@
 <?php
 
-namespace {{namespace}}\{{module}}\Services;
+namespace {{namespace}}\{{module}}\Repositories;
 
 use {{namespace}}\{{module}}\Models\{{model}};
+use Illuminate\Database\Eloquent\Collection;
 
-class {{name}}Service
+class {{name}}Repository
 {
     /**
      * Get all {{lower_name}}.
      *
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return Collection
      */
-    public function all()
+    public function all(): Collection
     {
         return {{model}}::all();
     }
 
     /**
-     * Find {{lower_name}} by ID.
+     * Find by ID.
      *
      * @param int $id
      * @return {{model}}|null
      */
-    public function find(int $id): ?{{model}}
+    public function findById(int $id): ?{{model}}
     {
         return {{model}}::find($id);
     }
 
     /**
-     * Create a new {{lower_name}}.
+     * Create.
      *
      * @param array $data
      * @return {{model}}
@@ -39,7 +40,7 @@ class {{name}}Service
     }
 
     /**
-     * Update {{lower_name}}.
+     * Update.
      *
      * @param {{model}} ${{lower_model}}
      * @param array $data
@@ -52,7 +53,7 @@ class {{name}}Service
     }
 
     /**
-     * Delete {{lower_name}}.
+     * Delete.
      *
      * @param {{model}} ${{lower_model}}
      * @return bool
@@ -60,5 +61,22 @@ class {{name}}Service
     public function delete({{model}} ${{lower_model}}): bool
     {
         return ${{lower_model}}->delete();
+    }
+
+    /**
+     * Find by criteria.
+     *
+     * @param array $criteria
+     * @return Collection
+     */
+    public function findWhere(array $criteria): Collection
+    {
+        $query = {{model}}::query();
+
+        foreach ($criteria as $key => $value) {
+            $query->where($key, $value);
+        }
+
+        return $query->get();
     }
 }

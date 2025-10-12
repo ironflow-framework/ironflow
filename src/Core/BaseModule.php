@@ -23,6 +23,10 @@ use IronFlow\Contracts\ExportableInterface;
  *
  * Base class for all IronFlow modules. Extends Laravel ServiceProvider
  * and provides concrete implementations for all activable interfaces.
+ * 
+ * @author Aure Dulvresse
+ * @package IronFlow/Core
+ * @since 1.0.0
  */
 abstract class BaseModule extends ServiceProvider
 {
@@ -49,10 +53,15 @@ abstract class BaseModule extends ServiceProvider
     /**
      * Create a new module instance.
      *
-     * @param \Illuminate\Contracts\Foundation\Application $app
+     * @param \Illuminate\Contracts\Foundation\Application|null $app
      */
-    public function __construct($app)
+    public function __construct($app = null)
     {
+        // Si $app est null, on prend l'instance globale
+        if ($app === null) {
+            $app = app();
+        }
+
         parent::__construct($app);
 
         $this->moduleName = $this->getModuleName();
@@ -359,6 +368,71 @@ abstract class BaseModule extends ServiceProvider
     }
 
     // ========================================================================
+    // SeedableInterface Implementation
+    // ========================================================================
+
+    /**
+     * Get seeder path.
+     *
+     * @return string
+     */
+    public function getSeederPath(): string
+    {
+        return $this->modulePath . '/Database/Seeders';
+    }
+
+    /**
+     * Get seeders.
+     *
+     * @return array
+     */
+    public function getSeeders(): array
+    {
+        return [];
+    }
+
+    /**
+     * Get seeder priority.
+     *
+     * @return int
+     */
+    public function getSeederPriority(): int
+    {
+        return 50;
+    }
+
+    /**
+     * Seed the module.
+     *
+     * @param string|null $seederClass
+     * @return void
+     */
+    public function seed(?string $seederClass = null): void
+    {
+        $namespace = config('ironflow.namespace', 'Modules');
+
+        if ($seederClass) {
+            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seederClass}";
+
+            if (class_exists($fullClass)) {
+                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
+            }
+
+            return;
+        }
+
+        $seeders = $this->getSeeders();
+
+        foreach ($seeders as $seeder) {
+            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seeder}";
+
+            if (class_exists($fullClass)) {
+                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
+            }
+        }
+    }
+
+    // ========================================================================
     // ConfigurableInterface Implementation
     // ========================================================================
 
@@ -585,6 +659,38 @@ abstract class BaseModule extends ServiceProvider
     }
 
     // ========================================================================
+    // PermissionInterface Implementation
+    // ========================================================================
+
+
+    /**
+     * Get permissions
+     * @return array
+     */
+    public function getPermissions(): array
+    {
+        return [];
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        $permissions = $this->getPermissions();
+        return isset($permissions[$permission]);
+    }
+
+    public function grantPermission(string $permission, string|array $roles): void
+    {
+        app(\IronFlow\Permissions\ModulePermissionSystem::class)
+            ->grant($this->moduleName, $permission, $roles);
+    }
+
+    public function revokePermission(string $permission, string|array $roles): void
+    {
+        app(\IronFlow\Permissions\ModulePermissionSystem::class)
+            ->revoke($this->moduleName, $permission, $roles);
+    }
+
+    // ========================================================================
     // Lifecycle Methods
     // ========================================================================
 
@@ -682,66 +788,5 @@ abstract class BaseModule extends ServiceProvider
             'event' => $event,
             'state' => $this->state->getCurrentState(),
         ]);
-    }
-
-    /**
-     * Get seeder path.
-     *
-     * @return string
-     */
-    public function getSeederPath(): string
-    {
-        return $this->modulePath . '/Database/Seeders';
-    }
-
-    /**
-     * Get seeders.
-     *
-     * @return array
-     */
-    public function getSeeders(): array
-    {
-        return [];
-    }
-
-    /**
-     * Get seeder priority.
-     *
-     * @return int
-     */
-    public function getSeederPriority(): int
-    {
-        return 50;
-    }
-
-    /**
-     * Seed the module.
-     *
-     * @param string|null $seederClass
-     * @return void
-     */
-    public function seed(?string $seederClass = null): void
-    {
-        $namespace = config('ironflow.namespace', 'Modules');
-
-        if ($seederClass) {
-            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seederClass}";
-
-            if (class_exists($fullClass)) {
-                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
-            }
-
-            return;
-        }
-
-        $seeders = $this->getSeeders();
-
-        foreach ($seeders as $seeder) {
-            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seeder}";
-
-            if (class_exists($fullClass)) {
-                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
-            }
-        }
     }
 }

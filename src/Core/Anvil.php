@@ -21,6 +21,10 @@ use IronFlow\Contracts\ExposableInterface;
  *
  * Manages the complete lifecycle of IronFlow modules including discovery,
  * registration, dependency resolution, service exposure, and conflict detection.
+ * 
+ * @author Aure Dulvresse
+ * @package IronFlow/Core
+ * @since 1.0.0
  */
 class Anvil
 {

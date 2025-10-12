@@ -12,8 +12,10 @@ use IronFlow\Exceptions\StateException;
  *
  * Manages the lifecycle state of a module with transition validation
  * and event history tracking.
- * @author  Aure Dulvresse
- * @package IronFlow\Core
+ * 
+ * @author Aure Dulvresse
+ * @package IronFlow/Core
+ * @since 1.0.0
  */
 class ModuleState
 {

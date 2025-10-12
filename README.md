@@ -28,10 +28,9 @@ IronFlow follows these core principles:
 
 ---
 
-
 ## Requirements
 
-- PHP 8.3 or higher
+- PHP 8.2 or higher
 - Laravel 12.x
 
 ## Installation

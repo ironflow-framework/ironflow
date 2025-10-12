@@ -119,34 +119,10 @@ class MakeModuleCommand extends Command
     {
         $stub = $this->getStub('module');
         $namespace = config('ironflow.namespace', 'Modules');
-
-        $interfaces = ['BootableInterface'];
-        $traits = [];
-
-        if ($this->option('view')) {
-            $interfaces[] = 'ViewableInterface';
-        }
-        if ($this->option('route')) {
-            $interfaces[] = 'RoutableInterface';
-        }
-        if ($this->option('migration')) {
-            $interfaces[] = 'MigratableInterface';
-        }
-        if ($this->option('config')) {
-            $interfaces[] = 'ConfigurableInterface';
-        }
-        if ($this->option('exposable')) {
-            $interfaces[] = 'ExposableInterface';
-        }
-        if ($this->option('exportable')) {
-            $interfaces[] = 'ExportableInterface';
-        }
-
-        $interfacesStr = !empty($interfaces) ? ', ' . implode(', ', $interfaces) : '';
-
+       
         $content = str_replace(
-            ['{{namespace}}', '{{name}}', '{{interfaces}}'],
-            [$namespace, $name, $interfacesStr],
+            ['{{namespace}}', '{{name}}'],
+            [$namespace, $name],
             $stub
         );
 
@@ -165,8 +141,8 @@ class MakeModuleCommand extends Command
         $stub = $this->getStub('route');
         $namespace = config('ironflow.namespace', 'Modules');
         $content = str_replace(
-            ['{{namespace}}', '{{name}}'],
-            [$namespace, $name],
+            ['{{namespace}}', '{{name}}', '{{lower_name}}'],
+            [$namespace, $name, Str::lower($name)],
             $stub
         );
         File::put($path . '/Routes/web.php', $content);
@@ -245,10 +221,10 @@ MD;
         File::put($path . '/README.md', $content);
     }
 
-    protected function getStub(string $name): string
+     protected function getStub(string $name): string
     {
         $customPath = resource_path('stubs/ironflow/' . $name . '.stub');
-        $defaultPath = __DIR__ . '/../../stubs/' . $name . '.stub';
+        $defaultPath = __DIR__ . '/../../../stubs/' . $name . '.stub';
 
         if (File::exists($customPath)) {
             return File::get($customPath);
