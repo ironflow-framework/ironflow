@@ -21,12 +21,11 @@ class CacheModulesCommand extends Command
 
     public function handle(): int
     {
-         if (config('ironflow.cache.enabled', true)) {
+        if (config('ironflow.cache.enabled', true)) {
 
-        Anvil::discover();
+            Anvil::discover();
 
-        $this->info('Modules cached successfully!');
-
+            $this->info('Modules cached successfully!');
         } else {
             $this->info('Ironflow cache not allowed.');
         }
