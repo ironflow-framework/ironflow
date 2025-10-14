@@ -20,9 +20,9 @@ class MakeModuleMigrationCommand extends Command
     {
         $module = $this->argument('module');
         $name = $this->argument('name');
-        
+
         $modulePath = config('ironflow.path') . '/' . $module;
-        
+
         if (!File::isDirectory($modulePath)) {
             $this->error("Module {$module} does not exist!");
             return 1;
@@ -32,7 +32,7 @@ class MakeModuleMigrationCommand extends Command
         File::ensureDirectoryExists($migrationPath);
 
         $stub = $this->getStub('migration');
-        
+
         // Extract table name from migration name
         preg_match('/create_(\w+)_table/', $name, $matches);
         $tableName = $matches[1] ?? Str::snake(Str::plural($module));
@@ -45,10 +45,10 @@ class MakeModuleMigrationCommand extends Command
 
         $timestamp = date('Y_m_d_His');
         $filename = "{$timestamp}_{$name}.php";
-        
+
         File::put($migrationPath . '/' . $filename, $content);
 
-        $this->info("Migration created: {$module}/Database/Migrations/{$filename}");
+        $this->output->info("Migration created: {$module}/Database/Migrations/{$filename}");
 
         return 0;
     }

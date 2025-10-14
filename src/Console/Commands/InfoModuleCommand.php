@@ -22,14 +22,14 @@ class InfoModuleCommand extends Command
         $module = Anvil::getModule($moduleName);
 
         if (!$module) {
-            $this->error("Module '{$moduleName}' not found.");
+            $this->output->error("Module '{$moduleName}' not found.");
             return self::FAILURE;
         }
 
         $modulePath = config('ironflow.path') . '/' . $moduleName;
         $metadata = $module->getMetadata();
 
-        $this->info("Module: {$metadata->getName()}");
+        $this->output->info("Module: {$metadata->getName()}");
         $this->newLine();
 
         $this->line("  <fg=cyan>Version:</> {$metadata->getVersion()}");

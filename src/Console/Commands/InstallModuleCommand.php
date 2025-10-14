@@ -25,7 +25,7 @@ class InstallModuleCommand extends Command
         $source = $this->argument('source');
         $isLocal = $this->option('local');
 
-        $this->info("Installing module from: {$source}");
+        $this->output->info("Installing module from: {$source}");
 
         if ($isLocal) {
             return $this->installFromLocal($source);
@@ -36,19 +36,19 @@ class InstallModuleCommand extends Command
 
     protected function installFromComposer(string $package): int
     {
-        $this->line("  → Installing via Composer...");
+        $this->output->writeln("  → Installing via Composer...");
 
         exec("composer require {$package} 2>&1", $output, $returnCode);
 
         if ($returnCode !== 0) {
-            $this->error("Failed to install package: {$package}");
+            $this->output->error("Failed to install package: {$package}");
             foreach ($output as $line) {
                 $this->line($line);
             }
             return self::FAILURE;
         }
 
-        $this->info("Package installed successfully!");
+        $this->output->info("Package installed successfully!");
         $this->call('ironflow:discover', ['--fresh' => true]);
 
         return self::SUCCESS;
@@ -56,10 +56,10 @@ class InstallModuleCommand extends Command
 
     protected function installFromLocal(string $path): int
     {
-        $this->line("  → Installing from local path...");
+        $this->output->writeln("  → Installing from local path...");
 
         if (!is_dir($path)) {
-            $this->error("Path does not exist: {$path}");
+            $this->output->error("Path does not exist: {$path}");
             return self::FAILURE;
         }
 
@@ -69,7 +69,7 @@ class InstallModuleCommand extends Command
         $targetPath = $modulesPath . "/{$moduleName}";
 
         if (is_dir($targetPath)) {
-            if (!$this->confirm("Module {$moduleName} already exists. Overwrite?")) {
+            if (!$this->output->confirm("Module {$moduleName} already exists. Overwrite?")) {
                 return self::FAILURE;
             }
 
@@ -78,7 +78,7 @@ class InstallModuleCommand extends Command
 
         File::copyDirectory($path, $targetPath);
 
-        $this->info("Module installed successfully!");
+        $this->output->info("Module installed successfully!");
         $this->call('ironflow:discover', ['--fresh' => true]);
 
         return self::SUCCESS;

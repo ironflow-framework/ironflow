@@ -6,6 +6,7 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use IronFlow\Facades\Anvil;
 
 /**
  * CacheClearCommand
@@ -20,14 +21,13 @@ class CacheClearCommand extends Command
     {
 
         if (config('ironflow.cache.enabled', true)) {
-            Cache::delete(
-                config('ironflow.cache.key', 'ironflow.modules'),
-            );
 
-            $this->info('IronFlow cache cleared successfully!');
+            Anvil::clearCache();
+
+            $this->output->success('IronFlow cache cleared successfully!');
 
         } else {
-            $this->info('No cache to clear.');
+            $this->output->info('No cache to clear.');
         }
 
         return self::SUCCESS;

@@ -29,7 +29,7 @@ class SeedModuleCommand extends Command
         $moduleName = $this->argument('module');
 
         if (!$moduleName) {
-            $this->error('Please provide a module name or use --all flag');
+            $this->output->error('Please provide a module name or use --all flag');
             return 1;
         }
 
@@ -41,16 +41,16 @@ class SeedModuleCommand extends Command
         $module = Anvil::getModule($moduleName);
 
         if (!$module) {
-            $this->error("Module {$moduleName} not found!");
+            $this->output->error("Module {$moduleName} not found!");
             return 1;
         }
 
         if (!$module instanceof SeedableInterface) {
-            $this->error("Module {$moduleName} does not implement SeedableInterface!");
+            $this->output->error("Module {$moduleName} does not implement SeedableInterface!");
             return 1;
         }
 
-        $this->info("Seeding module: {$moduleName}");
+        $this->output->info("Seeding module: {$moduleName}");
 
         try {
             $seederClass = $this->option('class');
@@ -61,10 +61,10 @@ class SeedModuleCommand extends Command
 
             $module->seed($seederClass);
 
-            $this->info("✓ Module {$moduleName} seeded successfully!");
+            $this->output->info("✓ Module {$moduleName} seeded successfully!");
             return 0;
         } catch (\Exception $e) {
-            $this->error("Failed to seed module: {$e->getMessage()}");
+            $this->output->error("Failed to seed module: {$e->getMessage()}");
             return 1;
         }
     }
@@ -76,7 +76,7 @@ class SeedModuleCommand extends Command
         });
 
         if ($modules->isEmpty()) {
-            $this->info('No seedable modules found.');
+            $this->output->info('No seedable modules found.');
             return 0;
         }
 
@@ -85,7 +85,7 @@ class SeedModuleCommand extends Command
             return $module->getSeederPriority();
         });
 
-        $this->info("Seeding {$sorted->count()} modules...");
+        $this->output->info("Seeding {$sorted->count()} modules...");
         $this->newLine();
 
         foreach ($sorted as $name => $module) {
@@ -93,14 +93,14 @@ class SeedModuleCommand extends Command
 
             try {
                 $module->seed();
-                $this->info("  ✓ Success");
+                $this->output->success("  ✓ Success");
             } catch (\Exception $e) {
-                $this->error("  ✗ Failed: {$e->getMessage()}");
+                $this->output->error("  ✗ Failed: {$e->getMessage()}");
             }
         }
 
         $this->newLine();
-        $this->info('✓ All modules seeded!');
+        $this->output->info('✓ All modules seeded!');
 
         return 0;
     }

@@ -22,14 +22,14 @@ class LazyLoadTestCommand extends Command
         $moduleName = $this->argument('module');
 
         if (!$lazyLoader->isLazyLoadable($moduleName)) {
-            $this->error("Module {$moduleName} is not lazy loadable!");
-            $this->comment('Possible reasons:');
+            $this->output->error("Module {$moduleName} is not lazy loadable!");
+            $this->output->comment('Possible reasons:');
             $this->line('  • Module is in eager list');
             $this->line('  • Lazy loading is disabled');
             return 1;
         }
 
-        $this->info("Testing lazy load for module: {$moduleName}");
+        $this->output->info("Testing lazy load for module: {$moduleName}");
         $this->newLine();
 
         // Test loading
@@ -42,13 +42,13 @@ class LazyLoadTestCommand extends Command
             $duration = round((microtime(true) - $startTime) * 1000, 2);
             $memoryUsed = round((memory_get_usage() - $startMemory) / 1024 / 1024, 2);
 
-            $this->info("✓ Module loaded successfully!");
+            $this->output->info("✓ Module loaded successfully!");
             $this->newLine();
 
             $metadata = $module->getMetadata();
             $state = $module->getState();
 
-            $this->table(
+            $this->output->table(
                 ['Property', 'Value'],
                 [
                     ['Name', $metadata->getName()],
@@ -62,8 +62,8 @@ class LazyLoadTestCommand extends Command
 
             return 0;
         } catch (\Exception $e) {
-            $this->error("✗ Failed to load module!");
-            $this->error($e->getMessage());
+            $this->output->error("✗ Failed to load module!");
+            $this->output->error($e->getMessage());
             return 1;
         }
     }

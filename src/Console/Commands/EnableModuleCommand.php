@@ -21,10 +21,10 @@ class EnableModuleCommand extends Command
 
         try {
             Anvil::enable($name);
-            $this->info("Module {$name} enabled successfully!");
+            $this->output->success("Module {$name} enabled successfully!");
             return 0;
         } catch (\Exception $e) {
-            $this->error("Failed to enable module: {$e->getMessage()}");
+            $this->output->error("Failed to enable module: {$e->getMessage()}");
             return 1;
         }
     }

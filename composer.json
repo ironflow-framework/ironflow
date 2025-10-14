@@ -1,4 +1,5 @@
 {
+    "$schema": "https://getcomposer.org/schema.json",
     "name": "ironflow/ironflow",
     "description": "A modular architecture framework for Laravel 12+",
     "type": "library",

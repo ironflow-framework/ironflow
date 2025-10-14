@@ -22,11 +22,11 @@ class LazyLoadBenchmarkCommand extends Command
     {
         $runs = (int) $this->option('runs');
 
-        $this->info("Running benchmark with {$runs} iterations...");
+        $this->output->info("Running benchmark with {$runs} iterations...");
         $this->newLine();
 
         // Benchmark eager loading
-        $this->comment('Testing Eager Loading...');
+        $this->output->comment('Testing Eager Loading...');
         $eagerTimes = [];
         $eagerMemory = [];
 
@@ -46,7 +46,7 @@ class LazyLoadBenchmarkCommand extends Command
         }
 
         // Benchmark lazy loading
-        $this->comment('Testing Lazy Loading...');
+        $this->output->comment('Testing Lazy Loading...');
         $lazyTimes = [];
         $lazyMemory = [];
 
@@ -66,9 +66,7 @@ class LazyLoadBenchmarkCommand extends Command
             app()->forgetInstance(LazyLoader::class);
         }
 
-        $this->newLine();
-        $this->info('Benchmark Results:');
-        $this->newLine();
+        $this->output->info('Benchmark Results:');
 
         $avgEagerTime = round(array_sum($eagerTimes) / count($eagerTimes), 2);
         $avgLazyTime = round(array_sum($lazyTimes) / count($lazyTimes), 2);
@@ -78,7 +76,7 @@ class LazyLoadBenchmarkCommand extends Command
         $timeSaved = round((($avgEagerTime - $avgLazyTime) / $avgEagerTime) * 100, 1);
         $memorySaved = round((($avgEagerMemory - $avgLazyMemory) / $avgEagerMemory) * 100, 1);
 
-        $this->table(
+        $this->output->table(
             ['Metric', 'Eager Loading', 'Lazy Loading', 'Improvement'],
             [
                 [
@@ -96,8 +94,7 @@ class LazyLoadBenchmarkCommand extends Command
             ]
         );
 
-        $this->newLine();
-        $this->info("✓ Lazy loading is {$timeSaved}% faster and uses {$memorySaved}% less memory!");
+        $this->output->info("✓ Lazy loading is {$timeSaved}% faster and uses {$memorySaved}% less memory!");
 
         return 0;
     }

@@ -6,7 +6,6 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 
 /**
  * MakeFactoryCommand
@@ -22,9 +21,9 @@ class MakeModuleFactoryCommand extends Command
         $module = $this->argument('module');
         $name = $this->argument('name');
         $model = $this->option('model') ?: str_replace('Factory', '', $name);
-        
+
         $modulePath = config('ironflow.path') . '/' . $module;
-        
+
         if (!File::isDirectory($modulePath)) {
             $this->error("Module {$module} does not exist!");
             return 1;
@@ -55,7 +54,7 @@ class MakeModuleFactoryCommand extends Command
         $filename = "{$name}.php";
         File::put($factoryPath . '/' . $filename, $content);
 
-        $this->info("Factory created: {$module}/Factories/{$filename}");
+        $this->output->info("Factory created: {$module}/Factories/{$filename}");
 
         return 0;
     }

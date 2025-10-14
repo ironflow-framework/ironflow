@@ -20,11 +20,11 @@ class LazyLoadWarmupCommand extends Command
     public function handle(LazyLoader $lazyLoader): int
     {
         if (!config('ironflow.lazy_load.enabled')) {
-            $this->error('Lazy loading is disabled!');
+            $this->output->error('Lazy loading is disabled!');
             return 1;
         }
 
-        $this->info('Warming up lazy loader...');
+        $this->output->info('Warming up lazy loader...');
 
         $startTime = microtime(true);
         $startMemory = memory_get_usage();
@@ -37,8 +37,8 @@ class LazyLoadWarmupCommand extends Command
         $stats = $lazyLoader->getStatistics();
 
         $this->newLine();
-        $this->info("✓ All modules warmed up!");
-        $this->table(
+        $this->output->info("✓ All modules warmed up!");
+        $this->output->table(
             ['Metric', 'Value'],
             [
                 ['Modules Loaded', $stats['loaded_modules']],

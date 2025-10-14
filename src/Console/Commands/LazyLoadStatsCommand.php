@@ -21,13 +21,13 @@ class LazyLoadStatsCommand extends Command
     {
         $stats = $lazyLoader->getStatistics();
 
-        $this->info('IronFlow Lazy Loading Statistics');
+        $this->output->info('IronFlow Lazy Loading Statistics');
         $this->newLine();
 
-        $this->table(
+        $this->output->table(
             ['Metric', 'Value'],
             [
-                ['Lazy Loading', $stats['enabled'] ? '<info>Enabled</info>' : '<comment>Disabled</comment>'],
+                ['Lazy Loading', $stats['enabled'] ? '<output->info>Enabled</output->info>' : '<comment>Disabled</comment>'],
                 ['Total Modules', $stats['total_modules']],
                 ['Eager Modules', $stats['eager_modules']],
                 ['Loaded Modules', $stats['loaded_modules']],
@@ -39,17 +39,16 @@ class LazyLoadStatsCommand extends Command
         $this->newLine();
 
         if (!empty($stats['loaded_list'])) {
-            $this->info('Loaded Modules:');
+            $this->output->info('Loaded Modules:');
             foreach ($stats['loaded_list'] as $module) {
-                $this->line("  • {$module}");
+                $this->output->writeln("  • {$module}");
             }
-            $this->newLine();
         }
 
         if (!empty($stats['pending_list'])) {
             $this->comment('Pending Modules (not loaded yet):');
             foreach ($stats['pending_list'] as $module) {
-                $this->line("  • {$module}");
+                $this->output->writeln("  • {$module}");
             }
         }
 

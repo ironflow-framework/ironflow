@@ -16,7 +16,7 @@ class HotReloadStatsCommand extends Command
     {
         $stats = $hotReloader->getStatistics();
 
-        $this->table(
+        $this->output->table(
             ['Metric', 'Value'],
             [
                 ['Enabled', $stats['enabled'] ? '<info>Yes</info>' : '<comment>No</comment>'],
@@ -26,8 +26,7 @@ class HotReloadStatsCommand extends Command
         );
 
         if (!empty($stats['modules'])) {
-            $this->newLine();
-            $this->info('Watched Modules:');
+            $this->output->writeln('Watched Modules:');
             foreach ($stats['modules'] as $module) {
                 $this->line("  • {$module}");
             }

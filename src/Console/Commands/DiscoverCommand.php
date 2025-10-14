@@ -6,7 +6,6 @@ namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use IronFlow\Facades\Anvil;
-use Illuminate\Support\Facades\File;
 
 /**
  * DiscoverCommand
@@ -20,17 +19,16 @@ class DiscoverCommand extends Command
 
     public function handle(): int
     {
+
         if ($this->option('fresh')) {
             $this->call('ironflow:cache:clear');
         }
-
-        $this->info('Discovering IronFlow modules...');
-        $this->newLine();
+        
+        $this->output->info('Discovering IronFlow modules...');
 
         Anvil::discover();
         $stats = Anvil::getStatistics();
 
-        $this->newLine();
         foreach ($stats as $key => $value) {
             $this->line("    {$key} : {$value}");
         }

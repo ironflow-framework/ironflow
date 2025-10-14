@@ -44,18 +44,18 @@ class PermissionsCommand extends Command
         $all = $permissions->getAllPermissions();
 
         if (empty($all)) {
-            $this->info('No permissions defined.');
+            $this->output->info('No permissions defined.');
             return 0;
         }
 
         foreach ($all as $moduleName => $modulePermissions) {
-            $this->info("Module: {$moduleName}");
-            
+            $this->output->info("Module: {$moduleName}");
+
             foreach ($modulePermissions as $permission => $roles) {
                 $rolesStr = is_array($roles) ? implode(', ', $roles) : $roles;
                 $this->line("  • {$permission}: {$rolesStr}");
             }
-            
+
             $this->newLine();
         }
 
@@ -67,11 +67,11 @@ class PermissionsCommand extends Command
         $modulePermissions = $permissions->getModulePermissions($module);
 
         if (empty($modulePermissions)) {
-            $this->info("No permissions for module: {$module}");
+            $this->output->info("No permissions for module: {$module}");
             return 0;
         }
 
-        $this->info("Permissions for {$module}:");
+        $this->output->info("Permissions for {$module}:");
         $this->newLine();
 
         foreach ($modulePermissions as $permission => $roles) {
@@ -87,11 +87,11 @@ class PermissionsCommand extends Command
         $rolePermissions = $permissions->getPermissionsByRole($role);
 
         if (empty($rolePermissions)) {
-            $this->info("No permissions for role: {$role}");
+            $this->output->info("No permissions for role: {$role}");
             return 0;
         }
 
-        $this->info("Permissions for role '{$role}':");
+        $this->output->info("Permissions for role '{$role}':");
         $this->newLine();
 
         foreach ($rolePermissions as $permission) {

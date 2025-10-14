@@ -38,7 +38,7 @@ class MakeModuleCommand extends Command
             return 1;
         }
 
-        $this->info("Creating module: {$name}");
+        $this->output->info("Creating module: {$name}");
 
         // Create module directory structure
         $this->createDirectoryStructure($modulePath, $name);
@@ -73,8 +73,8 @@ class MakeModuleCommand extends Command
 
         $this->generateReadme($modulePath, $name);
 
-        $this->info("Module {$name} created successfully!");
-        $this->info("Location: {$modulePath}");
+        $this->output->success("Module {$name} created successfully!");
+        $this->output->info("Location: {$modulePath}");
 
         return self::SUCCESS;
     }
@@ -119,7 +119,7 @@ class MakeModuleCommand extends Command
     {
         $stub = $this->getStub('module');
         $namespace = config('ironflow.namespace', 'Modules');
-       
+
         $content = str_replace(
             ['{{namespace}}', '{{name}}'],
             [$namespace, $name],

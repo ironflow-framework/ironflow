@@ -21,9 +21,9 @@ class MakeModuleControllerCommand extends Command
     {
         $module = $this->argument('module');
         $name = $this->argument('name');
-        
+
         $modulePath = config('ironflow.path') . '/' . $module;
-        
+
         if (!File::isDirectory($modulePath)) {
             $this->error("Module {$module} does not exist!");
             return 1;
@@ -56,7 +56,7 @@ class MakeModuleControllerCommand extends Command
         $filename = "{$name}.php";
         File::put($controllerPath . '/' . $filename, $content);
 
-        $this->info("Controller created: {$module}/Http/Controllers/{$filename}");
+        $this->output->info("Controller created: {$module}/Http/Controllers/{$filename}");
 
         return 0;
     }

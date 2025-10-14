@@ -21,9 +21,9 @@ class MakeModuleModelCommand extends Command
     {
         $module = $this->argument('module');
         $name = $this->argument('name');
-        
+
         $modulePath = config('ironflow.path') . '/' . $module;
-        
+
         if (!File::isDirectory($modulePath)) {
             $this->error("Module {$module} does not exist!");
             return 1;
@@ -44,7 +44,7 @@ class MakeModuleModelCommand extends Command
         $filename = "{$name}.php";
         File::put($modelPath . '/' . $filename, $content);
 
-        $this->info("Model created: {$module}/Models/{$filename}");
+        $this->output->info("Model created: {$module}/Models/{$filename}");
 
         // Create migration if requested
         if ($this->option('migration')) {
