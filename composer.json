@@ -54,7 +54,8 @@
                 "IronFlow\\IronFlowServiceProvider"
             ],
             "aliases": {
-                "Anvil": "IronFlow\\Facades\\Anvil"
+                "Anvil": "IronFlow\\Facades\\Anvil",
+                "ModuleEvent" : "IronFlow\\Facades\\EventBus"
             }
         }
     },
