@@ -3,32 +3,13 @@
 declare(strict_types=1);
 
 namespace IronFlow\Core;
-
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Log;
-use IronFlow\Contracts\ViewableInterface;
-use IronFlow\Contracts\RoutableInterface;
-use IronFlow\Contracts\MigratableInterface;
-use IronFlow\Contracts\BootableInterface;
-use IronFlow\Contracts\ConfigurableInterface;
-use IronFlow\Contracts\PublishableInterface;
-use IronFlow\Contracts\ExposableInterface;
-use IronFlow\Contracts\ExportableInterface;
-
 /**
  * BaseModule
  *
- * Base class for all IronFlow modules. Extends Laravel ServiceProvider
- * and provides concrete implementations for all activable interfaces.
- *
- * @author Aure Dulvresse
- * @package IronFlow/Core
- * @since 1.0.0
+ * Base class for all IronFlow modules.
+ * This is purely a structural contract that describes module capabilities.
  */
-abstract class BaseModule extends ServiceProvider
+abstract class BaseModule
 {
     /**
      * @var ModuleMetaData Module metadata
@@ -52,116 +33,13 @@ abstract class BaseModule extends ServiceProvider
 
     /**
      * Create a new module instance.
-     *
-     * @param \Illuminate\Contracts\Foundation\Application|null $app
      */
-    public function __construct($app = null)
+    public function __construct()
     {
-        // Si $app est null, on prend l'instance globale
-        if ($app === null) {
-            $app = app();
-        }
-
-        parent::__construct($app);
-
         $this->moduleName = $this->getModuleName();
         $this->modulePath = $this->getModulePath();
         $this->metadata = $this->createMetadata();
         $this->state = new ModuleState();
-    }
-
-    /**
-     * Register the module services.
-     *
-     * @return void
-     */
-    public function register(): void
-    {
-        try {
-            if ($this->state->isRegistered()) {
-                $this->state->transitionTo(ModuleState::STATE_PRELOADED);
-            }
-
-            // Register configuration if module is configurable
-            if ($this instanceof ConfigurableInterface) {
-                $this->registerConfig();
-            }
-
-            // Register module-specific services
-            $this->registerServices();
-
-            $this->logEvent('registered', "Module {$this->moduleName} registered successfully");
-        } catch (\Throwable $e) {
-            $this->state->markAsFailed($e);
-            $this->logEvent('failed', "Module {$this->moduleName} failed to register: {$e->getMessage()}", 'error');
-
-            Log::error(
-                "[IronFlow] Module registration failed: {$this->moduleName}",
-                [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]
-            );
-        }
-    }
-
-    /**
-     * Bootstrap the module services.
-     *
-     * @return void
-     */
-    public function boot(): void
-    {
-        if (!$this->metadata->isEnabled()) {
-            return;
-        }
-
-        try {
-            if ($this->state->isPreloaded()) {
-                $this->state->transitionTo(ModuleState::STATE_BOOTING);
-            }
-
-            // Register views if module is viewable
-            if ($this instanceof ViewableInterface) {
-                $this->registerViews();
-            }
-
-            // Register routes if module is routable
-            if ($this instanceof RoutableInterface) {
-                $this->registerRoutes();
-            }
-
-            // Register migrations if module is migratable
-            if ($this instanceof MigratableInterface) {
-                $this->registerMigrations();
-            }
-
-            // Register publishables if module is publishable
-            if ($this instanceof PublishableInterface) {
-                $this->registerPublishables();
-            }
-
-            // Execute custom boot logic if module is bootable
-            if ($this instanceof BootableInterface) {
-                $this->bootModule();
-            }
-
-            if ($this->state->isBooting()) {
-                $this->state->transitionTo(ModuleState::STATE_BOOTED);
-            }
-            $this->logEvent('booted', "Module {$this->moduleName} booted successfully");
-        } catch (\Throwable $e) {
-            $this->state->markAsFailed($e);
-            $this->logEvent('failed', "Module {$this->moduleName} failed to boot: {$e->getMessage()}", 'error');
-            
-            Log::error(
-                "[IronFlow] Module boot failed: {$this->moduleName}",
-                [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]
-            );
-        }
     }
 
     /**
@@ -179,14 +57,27 @@ abstract class BaseModule extends ServiceProvider
     abstract protected function createMetadata(): ModuleMetaData;
 
     /**
-     * Register module-specific services.
-     * Override this method in child modules.
+     * Register module services (optional, called by IronflowServiceProvider).
+     * This is where you bind services to the container.
      *
+     * @param \Illuminate\Contracts\Foundation\Application $app
      * @return void
      */
-    protected function registerServices(): void
+    public function register($app): void
     {
-        // Override in child modules
+        // Override in child modules if needed
+    }
+
+    /**
+     * Boot module (optional, called by IronflowServiceProvider).
+     * This is where you can execute boot logic.
+     *
+     * @param \Illuminate\Contracts\Foundation\Application $app
+     * @return void
+     */
+    public function boot($app): void
+    {
+        // Override in child modules if needed
     }
 
     /**
@@ -220,12 +111,88 @@ abstract class BaseModule extends ServiceProvider
         return $this->state;
     }
 
-    // ========================================================================
-    // ViewableInterface Implementation
-    // ========================================================================
+    /**
+     * Get module path.
+     *
+     * @return string
+     */
+    public function getPath(): string
+    {
+        return $this->modulePath;
+    }
 
     /**
-     * Get view namespace.
+     * Get module name.
+     *
+     * @return string
+     */
+    public function getName(): string
+    {
+        return $this->moduleName;
+    }
+
+    // =======================================================================
+    // Lifecycle Methods
+    // =======================================================================
+
+    /**
+     * Install the module.
+     *
+     * @return void
+     */
+    public function install(): void
+    {
+        // Override in child modules if needed
+    }
+
+    /**
+     * Enable the module.
+     *
+     * @return void
+     */
+    public function enable(): void
+    {
+        $this->metadata->enable();
+    }
+
+    /**
+     * Disable the module.
+     *
+     * @return void
+     */
+    public function disable(): void
+    {
+        $this->metadata->disable();
+        $this->state->transitionTo(ModuleState::STATE_DISABLED);
+    }
+
+    /**
+     * Update the module.
+     *
+     * @return void
+     */
+    public function update(): void
+    {
+        // Override in child modules if needed
+    }
+
+    /**
+     * Uninstall the module.
+     *
+     * @return void
+     */
+    public function uninstall(): void
+    {
+        // Override in child modules if needed
+    }
+
+    // =======================================================================
+    // Default Implementations for Interfaces
+    // These provide sensible defaults that can be overridden
+    // =======================================================================
+
+    /**
+     * Get view namespace (for ViewableInterface).
      *
      * @return string
      */
@@ -235,7 +202,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Get view paths.
+     * Get view paths (for ViewableInterface).
      *
      * @return array
      */
@@ -247,28 +214,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Register views.
-     *
-     * @return void
-     */
-    public function registerViews(): void
-    {
-        $viewPaths = $this->getViewPaths();
-        $namespace = $this->getViewNamespace();
-
-        foreach ($viewPaths as $path) {
-            if (File::isDirectory($path)) {
-                $this->loadViewsFrom($path, $namespace);
-            }
-        }
-    }
-
-    // ========================================================================
-    // RoutableInterface Implementation
-    // ========================================================================
-
-    /**
-     * Get route files.
+     * Get route files (for RoutableInterface).
      *
      * @return array
      */
@@ -281,7 +227,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Get route middleware.
+     * Get route middleware (for RoutableInterface).
      *
      * @return array
      */
@@ -294,7 +240,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Get route prefix.
+     * Get route prefix (for RoutableInterface).
      *
      * @return string|null
      */
@@ -304,41 +250,17 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Register routes.
-     *
-     * @return void
-     */
-    public function registerRoutes(): void
-    {
-        $routeFiles = $this->getRouteFiles();
-        $middleware = $this->getRouteMiddleware();
-        $prefix = $this->getRoutePrefix();
-
-        foreach ($routeFiles as $type => $file) {
-            if (File::exists($file)) {
-                Route::middleware($middleware[$type] ?? [])
-                    ->prefix($type === 'api' ? "api/$prefix" : $prefix)
-                    ->group($file);
-            }
-        }
-    }
-
-    // ========================================================================
-    // MigratableInterface Implementation
-    // ========================================================================
-
-    /**
-     * Get migration path.
+     * Get migration path (for MigratableInterface).
      *
      * @return string
      */
     public function getMigrationPath(): string
     {
-        return "$this->modulePath/Database/Migrations";
+        return $this->modulePath . '/Database/Migrations';
     }
 
     /**
-     * Get migration prefix.
+     * Get migration prefix (for MigratableInterface).
      *
      * @return string
      */
@@ -348,116 +270,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Register migrations.
-     *
-     * @return void
-     */
-    public function registerMigrations(): void
-    {
-        $path = $this->getMigrationPath();
-
-        if (File::isDirectory($path)) {
-            $this->loadMigrationsFrom($path);
-        }
-    }
-
-    /**
-     * Run migrations.
-     *
-     * @return void
-     */
-    public function runMigrations(): void
-    {
-        Artisan::call('migrate', [
-            '--path' => $this->getMigrationPath(),
-            '--force' => true,
-        ]);
-    }
-
-    /**
-     * Rollback migrations.
-     *
-     * @return void
-     */
-    public function rollbackMigrations(): void
-    {
-        Artisan::call('migrate:rollback', [
-            '--path' => $this->getMigrationPath(),
-            '--force' => true,
-        ]);
-    }
-
-    // ========================================================================
-    // SeedableInterface Implementation
-    // ========================================================================
-
-    /**
-     * Get seeder path.
-     *
-     * @return string
-     */
-    public function getSeederPath(): string
-    {
-        return $this->modulePath . '/Database/Seeders';
-    }
-
-    /**
-     * Get seeders.
-     *
-     * @return array
-     */
-    public function getSeeders(): array
-    {
-        return [];
-    }
-
-    /**
-     * Get seeder priority.
-     *
-     * @return int
-     */
-    public function getSeederPriority(): int
-    {
-        return 50;
-    }
-
-    /**
-     * Seed the module.
-     *
-     * @param string|null $seederClass
-     * @return void
-     */
-    public function seed(?string $seederClass = null): void
-    {
-        $namespace = config('ironflow.namespace', 'Modules');
-
-        if ($seederClass) {
-            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seederClass}";
-
-            if (class_exists($fullClass)) {
-                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
-            }
-
-            return;
-        }
-
-        $seeders = $this->getSeeders();
-
-        foreach ($seeders as $seeder) {
-            $fullClass = "{$namespace}\\{$this->moduleName}\\Database\\Seeders\\{$seeder}";
-
-            if (class_exists($fullClass)) {
-                Artisan::call('db:seed', ['--class' => $fullClass, '--force' => true]);
-            }
-        }
-    }
-
-    // ========================================================================
-    // ConfigurableInterface Implementation
-    // ========================================================================
-
-    /**
-     * Get config path.
+     * Get config path (for ConfigurableInterface).
      *
      * @return string
      */
@@ -467,7 +280,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Get config key.
+     * Get config key (for ConfigurableInterface).
      *
      * @return string
      */
@@ -477,35 +290,27 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Register config.
+     * Get translation path (for TranslatableInterface).
      *
-     * @return void
+     * @return string
      */
-    public function registerConfig(): void
+    public function getTranslationPath(): string
     {
-        $configPath = $this->getConfigPath();
-
-        if (File::exists($configPath)) {
-            $this->mergeConfigFrom($configPath, $this->getConfigKey());
-        }
+        return $this->modulePath . '/Resources/lang';
     }
 
     /**
-     * Merge config.
+     * Get translation namespace (for TranslatableInterface).
      *
-     * @return void
+     * @return string
      */
-    public function mergeConfig(): void
+    public function getTranslationNamespace(): string
     {
-        $this->registerConfig();
+        return strtolower($this->moduleName);
     }
 
-    // ========================================================================
-    // PublishableInterface Implementation
-    // ========================================================================
-
     /**
-     * Get publishable assets.
+     * Get publishable assets (for PublishableInterface).
      *
      * @return array
      */
@@ -518,7 +323,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Get publishable config.
+     * Get publishable config (for PublishableInterface).
      *
      * @return array
      */
@@ -530,7 +335,7 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Get publishable views.
+     * Get publishable views (for PublishableInterface).
      *
      * @return array
      */
@@ -542,149 +347,38 @@ abstract class BaseModule extends ServiceProvider
     }
 
     /**
-     * Register publishables.
+     * Get seeder path (for SeedableInterface).
      *
-     * @return void
+     * @return string
      */
-    public function registerPublishables(): void
+    public function getSeederPath(): string
     {
-        if ($this->app->runningInConsole()) {
-            // Publish config
-            $this->publishes($this->getPublishableConfig(), $this->moduleName . '-config');
-
-            // Publish views
-            $this->publishes($this->getPublishableViews(), $this->moduleName . '-views');
-
-            // Publish assets
-            $this->publishes($this->getPublishableAssets(), $this->moduleName . '-assets');
-        }
-    }
-
-    // ========================================================================
-    // ExposableInterface Implementation
-    // ========================================================================
-
-    /**
-     * Expose services.
-     *
-     * @return array
-     */
-    public function expose(): array
-    {
-        return [
-            'public' => $this->getExposedPublic(),
-            'linked' => [],
-        ];
+        return $this->modulePath . '/Database/Seeders';
     }
 
     /**
-     * Get exposed public services.
+     * Get seeders (for SeedableInterface).
      *
      * @return array
      */
-    public function getExposedPublic(): array
+    public function getSeeders(): array
     {
         return [];
     }
 
     /**
-     * Get exposed services for specific module.
+     * Get seeder priority (for SeedableInterface).
      *
-     * @param string $moduleName
-     * @return array
+     * @return int
      */
-    public function getExposedForModule(string $moduleName): array
+    public function getSeederPriority(): int
     {
-        return [];
-    }
-
-    // ========================================================================
-    // ExportableInterface Implementation
-    // ========================================================================
-
-    /**
-     * Export module for Packagist.
-     *
-     * @return array
-     */
-    public function export(): array
-    {
-        return [
-            'files' => [
-                $this->modulePath . '/Http',
-                $this->modulePath . '/Services',
-                $this->modulePath . '/Models',
-            ],
-            'assets' => [
-                $this->modulePath . '/Resources',
-            ],
-            'config' => [
-                $this->getConfigPath(),
-            ],
-            'stubs' => [],
-            'exclude' => [
-                '*.log',
-                '.DS_Store',
-                'node_modules',
-            ],
-        ];
+        return 50;
     }
 
     /**
-     * Get package name.
+     * Get permissions (for PermissionableInterface).
      *
-     * @return string
-     */
-    public function getPackageName(): string
-    {
-        return 'vendor/' . strtolower($this->moduleName);
-    }
-
-    /**
-     * Get package description.
-     *
-     * @return string
-     */
-    public function getPackageDescription(): string
-    {
-        return $this->metadata->getDescription();
-    }
-
-    /**
-     * Get package dependencies.
-     *
-     * @return array
-     */
-    public function getPackageDependencies(): array
-    {
-        return [
-            'php' => '^8.2',
-            'illuminate/support' => '^12.0',
-            'ironflow/ironflow' => '^1.0',
-        ];
-    }
-
-    /**
-     * Get package autoload.
-     *
-     * @return array
-     */
-    public function getPackageAutoload(): array
-    {
-        return [
-            'psr-4' => [
-                'Modules\\' . $this->moduleName . '\\' => 'src/',
-            ],
-        ];
-    }
-
-    // ========================================================================
-    // PermissionInterface Implementation
-    // ========================================================================
-
-
-    /**
-     * Get permissions
      * @return array
      */
     public function getPermissions(): array
@@ -692,121 +386,16 @@ abstract class BaseModule extends ServiceProvider
         return [];
     }
 
-    public function hasPermission(string $permission): bool
-    {
-        $permissions = $this->getPermissions();
-        return isset($permissions[$permission]);
-    }
-
-    public function grantPermission(string $permission, string|array $roles): void
-    {
-        app(\IronFlow\Permissions\ModulePermissionSystem::class)
-            ->grant($this->moduleName, $permission, $roles);
-    }
-
-    public function revokePermission(string $permission, string|array $roles): void
-    {
-        app(\IronFlow\Permissions\ModulePermissionSystem::class)
-            ->revoke($this->moduleName, $permission, $roles);
-    }
-
-    // ========================================================================
-    // Lifecycle Methods
-    // ========================================================================
-
     /**
-     * Install the module.
+     * Expose services (for ExposableInterface).
      *
-     * @return void
+     * @return array
      */
-    public function install(): void
+    public function expose(): array
     {
-        if ($this instanceof MigratableInterface) {
-            $this->runMigrations();
-        }
-
-        $this->logEvent('installed', "Module {$this->moduleName} installed");
-    }
-
-    /**
-     * Enable the module.
-     *
-     * @return void
-     */
-    public function enable(): void
-    {
-        $this->metadata->enable();
-        $this->logEvent('enabled', "Module {$this->moduleName} enabled");
-    }
-
-    /**
-     * Disable the module.
-     *
-     * @return void
-     */
-    public function disable(): void
-    {
-        $this->metadata->disable();
-        $this->state->transitionTo(ModuleState::STATE_DISABLED);
-        $this->logEvent('disabled', "Module {$this->moduleName} disabled");
-    }
-
-    /**
-     * Update the module.
-     *
-     * @return void
-     */
-    public function update(): void
-    {
-        if ($this instanceof MigratableInterface) {
-            $this->runMigrations();
-        }
-
-        $this->logEvent('updated', "Module {$this->moduleName} updated");
-    }
-
-    /**
-     * Uninstall the module.
-     *
-     * @return void
-     */
-    public function uninstall(): void
-    {
-        if ($this instanceof MigratableInterface) {
-            $this->rollbackMigrations();
-        }
-
-        $this->logEvent('uninstalled', "Module {$this->moduleName} uninstalled");
-    }
-
-    // ========================================================================
-    // Logging
-    // ========================================================================
-
-    /**
-     * Log module event.
-     *
-     * @param string $event
-     * @param string $message
-     * @param string $level
-     * @return void
-     */
-    protected function logEvent(string $event, string $message, string $level = 'info'): void
-    {
-        if (!config('ironflow.logging.enabled', true)) {
-            return;
-        }
-
-        $logEvents = config('ironflow.logging.log_events', []);
-        if (!($logEvents[$event] ?? false)) {
-            return;
-        }
-
-        $channel = config('ironflow.logging.channel', 'stack');
-        Log::channel($channel)->$level("[IronFlow] {$message}", [
-            'module' => $this->moduleName,
-            'event' => $event,
-            'state' => $this->state->getCurrentState(),
-        ]);
+        return [
+            'public' => [],
+            'linked' => [],
+        ];
     }
 }
