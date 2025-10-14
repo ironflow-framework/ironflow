@@ -21,10 +21,10 @@ class DisableModuleCommand extends Command
 
         try {
             Anvil::disable($name);
-            $this->info("Module {$name} disabled successfully!");
+            $this->output->info("Module {$name} disabled successfully!");
             return 0;
         } catch (\Exception $e) {
-            $this->error("Failed to disable module: {$e->getMessage()}");
+            $this->output->error("Failed to disable module: {$e->getMessage()}");
             return 1;
         }
     }

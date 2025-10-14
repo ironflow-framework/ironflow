@@ -19,11 +19,11 @@ class LazyLoadClearCommand extends Command
 
     public function handle(LazyLoader $lazyLoader): int
     {
-        $this->info('Clearing lazy loading cache...');
+        $this->output->info('Clearing lazy loading cache...');
 
         $lazyLoader->clearCache();
 
-        $this->info('✓ Cache cleared successfully!');
+        $this->output->success('✓ Cache cleared successfully!');
 
         return 0;
     }

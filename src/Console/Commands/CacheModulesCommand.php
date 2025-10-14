@@ -25,9 +25,9 @@ class CacheModulesCommand extends Command
 
             Anvil::discover();
 
-            $this->info('Modules cached successfully!');
+            $this->output->success('Modules cached successfully!');
         } else {
-            $this->info('Ironflow cache not allowed.');
+            $this->output->error('Ironflow cache not allowed.');
         }
 
         return self::SUCCESS;

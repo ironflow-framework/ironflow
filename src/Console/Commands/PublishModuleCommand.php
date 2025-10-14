@@ -28,12 +28,12 @@ class PublishModuleCommand extends Command
         $module = Anvil::getModule($name);
 
         if (!$module) {
-            $this->error("Module {$name} not found!");
+            $this->output->error("Module {$name} not found!");
             return 1;
         }
 
         if (!$module instanceof \IronFlow\Contracts\ExportableInterface) {
-            $this->error("Module {$name} does not implement ExportableInterface!");
+            $this->output->error("Module {$name} does not implement ExportableInterface!");
             return 1;
         }
 
@@ -41,14 +41,14 @@ class PublishModuleCommand extends Command
             ?? config('ironflow.export.output_path', storage_path('ironflow/exports'))
             . '/' . Str::slug($name);
 
-        $this->info("Exporting module: {$name}");
+        $this->output->info("Exporting module: {$name}");
 
         try {
             $exportData = $module->export();
 
             if ($this->option('dry-run')) {
-                $this->info("Dry run - would export the following:");
-                $this->table(['Type', 'Items'], [
+                $this->output->info("Dry run - would export the following:");
+                $this->output->table(['Type', 'Items'], [
                     ['Files', count($exportData['files'] ?? [])],
                     ['Assets', count($exportData['assets'] ?? [])],
                     ['Config', count($exportData['config'] ?? [])],
@@ -69,12 +69,12 @@ class PublishModuleCommand extends Command
             // Generate README
             $this->generatePackageReadme($module, $outputPath);
 
-            $this->info("Module exported successfully to: {$outputPath}");
-            $this->info("Package name: {$module->getPackageName()}");
+            $this->output->info("Module exported successfully to: {$outputPath}");
+            $this->output->info("Package name: {$module->getPackageName()}");
 
             return 0;
         } catch (\Exception $e) {
-            $this->error("Failed to export module: {$e->getMessage()}");
+            $this->output->error("Failed to export module: {$e->getMessage()}");
             return 1;
         }
     }
@@ -90,7 +90,9 @@ class PublishModuleCommand extends Command
             'type' => 'library',
             'license' => 'MIT',
             'authors' => $metadata->getAuthors(),
-            'require' => $module->getPackageDependencies(),
+            'require' => [
+                'ironflow/ironflow' => '^3.0'
+            ],
             'autoload' => $module->getPackageAutoload(),
             'extra' => [
                 'laravel' => [

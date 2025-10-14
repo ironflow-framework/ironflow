@@ -31,7 +31,7 @@ class ListModulesCommand extends Command
         }
 
         if ($modules->isEmpty()) {
-            $this->info('No modules found.');
+            $this->output->info('No modules found.');
             return 0;
         }
 
@@ -52,11 +52,11 @@ class ListModulesCommand extends Command
             ];
         }
 
-        $this->table($headers, $rows);
+        $this->output->table($headers, $rows);
 
         $stats = Anvil::getStatistics();
         $this->newLine();
-        $this->info("Total: {$stats['total']} | Enabled: {$stats['enabled']} | Disabled: {$stats['disabled']} | Failed: {$stats['failed']}");
+        $this->output->info("Total: {$stats['total']} | Enabled: {$stats['enabled']} | Disabled: {$stats['disabled']} | Failed: {$stats['failed']}");
 
         return 0;
     }

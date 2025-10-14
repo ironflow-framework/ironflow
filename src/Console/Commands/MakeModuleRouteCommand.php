@@ -20,9 +20,9 @@ class MakeModuleRouteCommand extends Command
     {
         $module = $this->argument('module');
         $name = $this->argument('name');
-        
+
         $modulePath = config('ironflow.path') . '/' . $module;
-        
+
         if (!File::isDirectory($modulePath)) {
             $this->error("Module {$module} does not exist!");
             return 1;
@@ -51,7 +51,7 @@ class MakeModuleRouteCommand extends Command
         $filename = "{$name}.php";
         File::put($routePath . '/' . $filename, $content);
 
-        $this->info("Route created: {$module}/Routes/{$filename}");
+        $this->output->info("Route created: {$module}/Routes/{$filename}");
 
         return 0;
     }

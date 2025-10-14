@@ -19,15 +19,15 @@ class HotReloadWatchCommand extends Command
     public function handle(HotReloader $hotReloader): int
     {
         if (!config('ironflow.hot_reload.enabled')) {
-            $this->error('Hot reload is disabled in configuration!');
+            $this->output->error('Hot reload is disabled in configuration!');
             return 1;
         }
 
-        $this->info('Starting hot reload watcher...');
+        $this->output->info('Starting hot reload watcher...');
         $hotReloader->enable();
 
         $stats = $hotReloader->getStatistics();
-        $this->info("Watching {$stats['watched_modules']} modules ({$stats['watched_files']} files)");
+        $this->output->info("Watching {$stats['watched_modules']} modules ({$stats['watched_files']} files)");
         $this->newLine();
 
         $interval = (int) $this->option('interval');

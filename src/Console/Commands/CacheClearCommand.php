@@ -24,10 +24,10 @@ class CacheClearCommand extends Command
 
             Anvil::clearCache();
 
-            $this->info('IronFlow cache cleared successfully!');
+            $this->output->success('IronFlow cache cleared successfully!');
 
         } else {
-            $this->info('No cache to clear.');
+            $this->output->info('No cache to clear.');
         }
 
         return self::SUCCESS;

@@ -22,9 +22,9 @@ class MakeModuleRepositoryCommand extends Command
         $module = $this->argument('module');
         $name = $this->argument('name');
         $model = $this->option('model') ?: str_replace('Repository', '', $name);
-        
+
         $modulePath = config('ironflow.path') . '/' . $module;
-        
+
         if (!File::isDirectory($modulePath)) {
             $this->error("Module {$module} does not exist!");
             return 1;
@@ -59,7 +59,7 @@ class MakeModuleRepositoryCommand extends Command
         $filename = "{$name}.php";
         File::put($servicePath . '/' . $filename, $content);
 
-        $this->info("Repository created: {$module}/Repositories/{$filename}");
+        $this->output->info("Repository created: {$module}/Repositories/{$filename}");
 
         return 0;
     }
