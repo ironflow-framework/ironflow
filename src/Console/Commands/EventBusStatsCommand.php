@@ -1,6 +1,6 @@
 <?php
 
-namespace IronFlow\Console;
+namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use IronFlow\Events\ModuleEventBus;
@@ -31,7 +31,7 @@ class EventBusStatsCommand extends Command
         $historyLimit = (int) $this->option('history');
         if ($historyLimit > 0) {
             $history = ModuleEventBus::getHistory($historyLimit);
-            
+
             if (!empty($history)) {
                 $this->newLine();
                 $this->info("Recent Events (last {$historyLimit}):");
