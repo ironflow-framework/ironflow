@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace IronFlow\Support;
 
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use IronFlow\Core\Anvil;
 use IronFlow\Core\BaseModule;
@@ -147,7 +146,7 @@ class HotReloader
 
             $reloadedModule = $this->anvil->getModule($moduleName);
             $reloadedModule->enable();
-            $reloadedModule->boot();
+            $reloadedModule->boot(app());
 
             Log::info("[IronFlow HotReload] Module reloaded successfully: {$moduleName}");
 

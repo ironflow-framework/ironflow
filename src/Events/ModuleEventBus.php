@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace IronFlow\Events;
 
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 
 /**
  * ModuleEventBus
@@ -46,7 +48,7 @@ class ModuleEventBus
     public static function dispatch(string $moduleName, string $eventName, array $data = [], bool $async = false): void
     {
         $fullEventName = self::buildEventName($moduleName, $eventName);
-        
+
         if (self::$debug) {
             self::logEvent('dispatch', $moduleName, $eventName, $data);
         }
@@ -73,6 +75,11 @@ class ModuleEventBus
         }
     }
 
+    public static function channel(string $channelName): LoggerInterface
+    {
+        return Log::channel($channelName);
+    }
+
     /**
      * Listen to events from a specific module.
      *
@@ -85,7 +92,7 @@ class ModuleEventBus
     public static function listen(string $moduleName, string $eventName, callable $listener, int $priority = 0): void
     {
         $fullEventName = self::buildEventName($moduleName, $eventName);
-        
+
         if (!isset(self::$listeners[$fullEventName])) {
             self::$listeners[$fullEventName] = [];
         }
@@ -141,7 +148,7 @@ class ModuleEventBus
     public static function forget(string $moduleName, string $eventName): void
     {
         $fullEventName = self::buildEventName($moduleName, $eventName);
-        
+
         Event::forget($fullEventName);
         unset(self::$listeners[$fullEventName]);
     }

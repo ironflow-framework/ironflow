@@ -1,7 +1,7 @@
 # IronFlow Framework
 
 <p align="start">
-  <img src="https://img.shields.io/badge/version-3.0.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.2.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/laravel-12%2B-red.svg" alt="Laravel">
   <img src="https://img.shields.io/badge/php-8.2%2B-purple.svg" alt="PHP">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
@@ -31,8 +31,8 @@ IronFlow is a plug-and-play modular framework that provides complete module isol
 - [Advanced Features](#advanced-features)
   - [Event System](#event-system)
   - [Permissions](#permissions)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
@@ -48,7 +48,7 @@ IronFlow is a plug-and-play modular framework that provides complete module isol
 - ✅ **Conflict Detection** - Prevents route, migration, view, and config conflicts
 - ✅ **Packagist Ready** - Export modules as standalone packages
 
-### Performance
+### Performance features
 
 - **Lazy Loading** - 60-70% faster boot time, 65-75% less memory
 - **Smart Preloading** - Route patterns, time-based, role-based
@@ -149,7 +149,7 @@ use IronFlow\Core\ModuleMetaData;
 use IronFlow\Contracts\ViewableInterface;
 use IronFlow\Contracts\RoutableInterface;
 
-class BlogModule extends BaseModule implements 
+class BlogModule extends BaseModule implements
     ViewableInterface,
     RoutableInterface
 {
@@ -278,30 +278,30 @@ $state->getLastError();  // Error details if failed
 
 Modules declare capabilities via interfaces:
 
-| Interface | Purpose | Auto-loaded by Anvil |
-|-----------|---------|----------------------|
-| `ViewableInterface` | Views with namespace | ✅ `loadViewsFrom()` |
-| `RoutableInterface` | Routes with prefix | ✅ `Route::group()` |
-| `MigratableInterface` | Database migrations | ✅ `loadMigrationsFrom()` |
-| `ConfigurableInterface` | Configuration | ✅ `mergeConfigFrom()` |
-| `TranslatableInterface` | Translations | ✅ `loadTranslationsFrom()` |
-| `PublishableInterface` | Assets/config publishing | ✅ `publishes()` |
-| `BootableInterface` | Custom boot logic | Calls `bootModule()` |
-| `ExposableInterface` | Service exposure | Registers with ServiceExposer |
-| `SeedableInterface` | Database seeding | Used by seed command |
-| `PermissionableInterface` | Permissions | Registers with PermissionSystem |
+| Interface                 | Required method                  | IronFlow Actions      |
+| ------------------------- | ------------------------ | ------------------------------- |
+| `ViewableInterface`       | `getViewNamespace()`, `getViewPaths()`    | `loadViewsFrom()`            |
+| `RoutableInterface`       | `getRouteFiles()`, `getRoutePrefix()`       | `Route::group()`             |
+| `MigratableInterface`     | `getMigrationPath()`, `getMigrationPrefix()`     | `loadMigrationsFrom()`       |
+| `ConfigurableInterface`   | `getConfigPath()`, `getConfigKey()`            | `mergeConfigFrom()`          |
+| `TranslatableInterface`   | `getTranslationPath()`             | `loadTranslationsFrom()`     |
+| `PublishableInterface`    | `getPublishableAssets()` | `publishes()`                |
+| `BootableInterface`       | Custom boot logic in `bootModule()`       | Calls `bootModule()`            |
+| `ExposableInterface`      | `expose()`         | ServiceExposer   |
+| `SeedableInterface`       | `getSeeders()`, `getSeederPath()`, `seed()`, `getPriority()`          | Used by seed command            |
+| `PermissionableInterface` | `getPermissions()`, `hasPermission()`, `grantPermission()`, `revokePermission()`              | PermissionSystem |
 
 **Example:**
 
 ```php
-class MyModule extends BaseModule implements 
+class MyModule extends BaseModule implements
     ViewableInterface,
     RoutableInterface,
     ConfigurableInterface
 {
     // That's it! Resources are auto-loaded
     // Views from: Resources/views (namespace: mymodule)
-    // Routes from: Routes/web.php and Routes/api.php  
+    // Routes from: Routes/web.php and Routes/api.php
     // Config from: config/mymodule.php (key: mymodule)
 }
 ```
@@ -353,12 +353,12 @@ php artisan ironflow:lazy:benchmark   # Compare eager vs lazy
 
 ### Benchmarks
 
-| Scenario | Without Lazy | With Lazy | Improvement |
-|----------|-------------|-----------|-------------|
-| **Small App (5-10 modules)** | 80-120ms | 25-40ms | **70% faster** |
-| **Medium App (15-30 modules)** | 150-250ms | 40-80ms | **65% faster** |
-| **Large App (50+ modules)** | 400-600ms | 80-150ms | **70% faster** |
-| **Memory** | 80-120MB | 20-35MB | **75% less** |
+| Scenario                       | Without Lazy | With Lazy | Improvement    |
+| ------------------------------ | ------------ | --------- | -------------- |
+| **Small App (5-10 modules)**   | 80-120ms     | 25-40ms   | **70% faster** |
+| **Medium App (15-30 modules)** | 150-250ms    | 40-80ms   | **65% faster** |
+| **Large App (50+ modules)**    | 400-600ms    | 80-150ms  | **70% faster** |
+| **Memory**                     | 80-120MB     | 20-35MB   | **75% less**   |
 
 [↑ Back to top](#ironflow-framework)
 
@@ -471,11 +471,11 @@ php artisan ironflow:hot-reload:stats
 
 ```php
 'hot_reload' => [
-    'enabled' => env('IRONFLOW_HOT_RELOAD', app()->environment('local')),
+    'enabled' => env('IRONFLOW_HOT_RELOAD', config('app.env')),
     'watch_paths' => [
-        'ModuleClass.php',
-        'Routes/*.php',
-        'Http/Controllers/*.php',
+      'ModuleClass.php',
+      'Routes/*.php',
+      'Http/Controllers/*.php',
     ],
 ],
 ```
@@ -490,11 +490,11 @@ use IronFlow\Testing\ModuleTestCase;
 class BlogModuleTest extends ModuleTestCase
 {
     protected string $moduleName = 'Blog';
-    
+
     public function test_module_boots()
     {
         $module = $this->bootModule();
-        
+
         $this->assertModuleBooted('Blog');
         $this->assertRouteExists('blog.index');
         $this->assertViewExists('blog::index');
@@ -649,20 +649,20 @@ modules/Blog/
 return [
     // Module discovery path
     'path' => base_path('modules'),
-    
+
     // Base namespace
     'namespace' => 'Modules',
-    
+
     // Auto-discover modules
     'auto_discover' => true,
-    
+
     // Lazy loading
     'lazy_load' => [
         'enabled' => true,
         'eager' => ['Core', 'Auth'],
         'strategies' => ['route' => true, 'service' => true],
     ],
-    
+
     // Conflict detection
     'conflict_detection' => [
         'enabled' => true,
@@ -671,7 +671,7 @@ return [
         'views' => true,
         'config' => true,
     ],
-    
+
     // Logging
     'logging' => [
         'enabled' => true,
@@ -682,7 +682,7 @@ return [
             'failed' => true,
         ],
     ],
-    
+
     // Service exposure
     'service_exposure' => [
         'strict_mode' => true,
@@ -705,25 +705,25 @@ use IronFlow\Testing\ModuleTestCase;
 class BlogModuleTest extends ModuleTestCase
 {
     protected string $moduleName = 'Blog';
-    
+
     public function test_module_structure()
     {
         $this->assertModuleExists('Blog');
         $this->assertModuleEnabled('Blog');
     }
-    
+
     public function test_routes_registered()
     {
         $this->bootModule();
-        
+
         $this->assertRouteExists('blog.index');
         $this->assertRoutePrefix('blog');
     }
-    
+
     public function test_services_exposed()
     {
         $this->bootModule();
-        
+
         $this->assertServiceExposed('Blog', 'PostService');
         $this->assertServiceAccessible('Blog', 'PostService');
     }
@@ -737,10 +737,10 @@ public function test_inter_module_communication()
 {
     $this->bootModule('Blog');
     $this->bootModule('Admin');
-    
+
     $postService = Anvil::getService('Blog', 'PostService', 'Admin');
     $post = $postService->create(['title' => 'Test']);
-    
+
     $this->assertDatabaseHas('posts', ['title' => 'Test']);
 }
 ```
