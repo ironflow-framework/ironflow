@@ -810,7 +810,7 @@ $permissions->export();
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
@@ -836,26 +836,24 @@ composer test:coverage
 
 ---
 
-## 📄 License
+## License
 
 IronFlow is open-sourced software licensed under the [MIT license](LICENSE.md).
 
 ---
 
-## 🙏 Credits
+## Credits
 
-Built with ❤️ by the [IronFlow Team](https://github.com/ironflow)
+Built with ❤️ by the [IronFlow Team](https://github.com/ironflow-framework)
 
 Inspired by Laravel Modules but designed for enterprise-grade modular applications.
 
 ---
 
-## 📞 Support
+## Support
 
-- **Documentation**: [https://ironflow.dev/docs](https://ironflow.dev/docs)
-- **Issues**: [GitHub Issues](https://github.com/ironflow/ironflow/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/ironflow/ironflow/discussions)
-- **Twitter**: [@ironflow_dev](https://twitter.com/ironflow_dev)
+- **Issues**: [GitHub Issues](https://github.com/ironflow-framework/ironflow/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ironflow-framework/ironflow/discussions)
 
 ---
 
