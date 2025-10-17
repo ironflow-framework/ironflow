@@ -23,19 +23,4 @@ interface ExposableInterface
      * @return array
      */
     public function expose(): array;
-
-    /**
-     * Get publicly exposed services (available to all modules).
-     *
-     * @return array
-     */
-    public function getExposedPublic(): array;
-
-    /**
-     * Get services exposed to a specific linked module.
-     *
-     * @param string $moduleName
-     * @return array
-     */
-    public function getExposedForModule(string $moduleName): array;
 }
