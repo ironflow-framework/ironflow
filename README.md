@@ -1,287 +1,89 @@
 # IronFlow Framework
 
 <p align="start">
-  <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="Version 2.0.0">
-  <img src="https://img.shields.io/badge/PHP-%3E%3D8.2-777bb3" alt="PHP >= 8.2">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License MIT">
+  <img src="https://img.shields.io/badge/version-3.0.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/laravel-12%2B-red.svg" alt="Laravel">
+  <img src="https://img.shields.io/badge/php-8.2%2B-purple.svg" alt="PHP">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
 </p>
 
 > **A powerful, modular architecture framework for Laravel 12+**
 
-IronFlow is a plug-and-play modular framework that provides complete module isolation, extensibility, and maintainability for Laravel applications. Think of it as Laravel Modules on steroids, with advanced features like service exposure, conflict detection, and lifecycle management.
+IronFlow is a plug-and-play modular framework that provides complete module isolation, extensibility, and maintainability for Laravel applications. Think of it as Laravel Modules on steroids, with advanced features like lazy loading, service exposure, conflict detection, and lifecycle management.
 
 ---
 
-## Philosophy
+## Table des Matières
 
-IronFlow follows these core principles:
-
-- **Complete Isolation**: Each module is self-contained with its own routes, views, migrations, and services
-- **Activable Interfaces**: Modules opt-in to features via interfaces (ViewableInterface, RoutableInterface, etc.)
-- **Lifecycle Management**: Full control over module installation, enabling, disabling, and uninstallation
-- **Service Exposure**: Controlled service sharing between modules (public or linked-only)
-- **Dependency Resolution**: Automatic dependency resolution and boot ordering
-- **Conflict Detection**: Prevents route, migration, view, and config conflicts
-- **Packagist Ready**: Export modules as standalone packages with `ExportableInterface`
-
-> "Structure, autonomy, and reusability — without losing the soul of Laravel."
+- [Features](#features)
+- [Quick Start](#quick-start)
+  - [Installation](#installation)
+  - [Create Your First Module](#create-your-first-module)
+- [Core Concepts](#core-concepts)
+  - [BaseModule](#basemodule)
+  - [Anvil - The Orchestrator](#anvil---the-orchestrator)
+  - [ModuleMetaData](#modulemetadata)
+  - [ModuleState](#modulestate)
+  - [Activable Interfaces](#activable-interfaces)
+- [Performance](#performance)
+  - [Lazy Loading](#lazy-loading)
+  - [Benchmarks](#benchmarks)
+- [Advanced Features](#advanced-features)
+  - [Event System](#event-system)
+  - [Permissions](#permissions)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
-## Requirements
+## Features
 
-- PHP 8.2 or higher
-- Laravel 12.x
+### Core Architecture
 
-## Installation
+- ✅ **Complete Module Isolation** - Self-contained modules with own routes, views, migrations
+- ✅ **Activable Interfaces** - Opt-in features via interfaces (ViewableInterface, RoutableInterface, etc.)
+- ✅ **Lifecycle Management** - Full control: install(), enable(), disable(), update(), uninstall()
+- ✅ **Service Exposure** - Controlled service sharing (public or linked-only)
+- ✅ **Dependency Resolution** - Automatic with circular dependency detection
+- ✅ **Conflict Detection** - Prevents route, migration, view, and config conflicts
+- ✅ **Packagist Ready** - Export modules as standalone packages
 
-### Install in Existing Laravel Project
+### Performance
+
+- **Lazy Loading** - 60-70% faster boot time, 65-75% less memory
+- **Smart Preloading** - Route patterns, time-based, role-based
+- **Selective Loading** - Load only what you need, when you need it
+
+### Developer Experience
+
+- **Hot-Reload** - Dev mode without server restart
+- **Testing Utilities** - Complete ModuleTestCase with 15+ assertions
+- **CLI Generator** - Create modules in seconds
+- **Auto-Documentation** - Self-documenting architecture
+
+### Advances Features
+
+- **Permissions System** - Role-based access control per module
+- **Event Bus** - Dedicated inter-module communication
+
+---
+
+## Quick Start
+
+### Installation
 
 ```bash
 composer require ironflow/ironflow
 ```
 
-Publish the configuration:
+### Publish Configuration
 
 ```bash
 php artisan vendor:publish --tag=ironflow-config
 php artisan vendor:publish --tag=ironflow-stubs
 ```
 
-### Create New Project with Skeleton
-
-```bash
-composer create-project ironflow/skeleton my-app
-cd my-app
-php artisan serve
-```
----
-
-## Core Architecture
-
-### BaseModule
-
-All modules extend `BaseModule`, which provides:
-
-- **Native Laravel Integration**: Extends `ServiceProvider` for seamless integration
-- **Complete Lifecycle**: `install()`, `enable()`, `disable()`, `update()`, `uninstall()`
-- **Interface Implementations**: Concrete implementations for all activable interfaces
-- **Automatic Logging**: Tracks registered, booted, and failed states
-
-### ModuleMetaData
-
-Encapsulates module information:
-
-```php
-new ModuleMetaData([
-    'name' => 'Blog',
-    'version' => '1.0.0',
-    'description' => 'Blog module',
-    'authors' => [['name' => 'John Doe', 'email' => 'john@example.com']],
-    'dependencies' => ['Core', 'Auth'],
-    'required' => ['Core'],
-    'enabled' => true,
-    'priority' => 50, // Higher = boots first
-    'provides' => ['PostService', 'CommentService'],
-    'allowOverride' => false,
-    'linkedModules' => ['Admin', 'Analytics'],
-]);
-```
-
-### ModuleState
-
-Manages module lifecycle with validated transitions:
-
-- `registered` → `preloaded` → `booting` → `booted`
-- `failed` (can transition from any state)
-- `disabled` (reversible)
-
-Tracks history, errors, and duration in each state.
-
-### Anvil - The Orchestrator
-
-Anvil is the core engine that:
-
-- **Discovers** modules automatically from `modules/` directory
-- **Resolves** dependencies and determines boot order
-- **Detects** conflicts between modules
-- **Exposes** services for inter-module communication
-- **Manages** lifecycle operations (enable, disable, install, uninstall)
-
-Access via facade:
-
-```php
-use IronFlow\Facades\Anvil;
-
-Anvil::getModule('Blog');
-Anvil::enable('Blog');
-Anvil::getService('Blog', 'PostService', 'Admin');
-```
-
----
-
-## Activable Interfaces
-
-Modules activate features by implementing interfaces:
-
-### ViewableInterface
-
-```php
-implements ViewableInterface
-
-public function getViewNamespace(): string
-{
-    return 'blog'; // Access views via blog::index
-}
-
-public function getViewPaths(): array
-{
-    return [$this->modulePath . '/Resources/views'];
-}
-```
-
-### RoutableInterface
-
-```php
-implements RoutableInterface
-
-public function getRouteFiles(): array
-{
-    return [
-        'web' => $this->modulePath . '/Routes/web.php',
-        'api' => $this->modulePath . '/Routes/api.php',
-    ];
-}
-
-public function getRoutePrefix(): ?string
-{
-    return 'blog'; // Routes prefixed with /blog
-}
-```
-
-### MigratableInterface
-
-```php
-implements MigratableInterface
-
-public function getMigrationPath(): string
-{
-    return $this->modulePath . '/Database/Migrations';
-}
-
-public function getMigrationPrefix(): string
-{
-    return 'blog_'; // Prevents table name conflicts
-}
-```
-
-### ConfigurableInterface
-
-```php
-implements ConfigurableInterface
-
-public function getConfigPath(): string
-{
-    return $this->modulePath . '/config/blog.php';
-}
-
-public function getConfigKey(): string
-{
-    return 'blog'; // Access via config('blog.key')
-}
-```
-
-### PublishableInterface
-
-```php
-implements PublishableInterface
-
-public function getPublishableAssets(): array
-{
-    return [
-        $this->modulePath . '/Resources/css' => public_path('vendor/blog/css'),
-        $this->modulePath . '/Resources/js' => public_path('vendor/blog/js'),
-    ];
-}
-```
-
-### ExposableInterface
-
-Control how your module shares services:
-
-```php
-implements ExposableInterface
-
-public function expose(): array
-{
-    return [
-        'public' => [
-            'PostService' => app(PostService::class),
-            'stats' => ['total' => 100],
-        ],
-        'linked' => [
-            'Admin' => [
-                'PostService' => app(PostService::class),
-                'CommentService' => app(CommentService::class),
-            ],
-        ],
-    ];
-}
-
-// Access exposed services from another module
-$postService = Anvil::getService('Blog', 'PostService', 'Admin');
-```
-
-**Strict Mode**: When enabled (default), services are only accessible to linked modules.
-
-### ExportableInterface
-
-Prepare your module for Packagist:
-
-```php
-implements ExportableInterface
-
-public function export(): array
-{
-    return [
-        'files' => [$this->modulePath . '/Http', $this->modulePath . '/Models'],
-        'assets' => [$this->modulePath . '/Resources'],
-        'config' => [$this->getConfigPath()],
-        'stubs' => [],
-        'exclude' => ['*.log', 'node_modules'],
-    ];
-}
-
-public function getPackageName(): string
-{
-    return 'vendor/blog-module';
-}
-```
-
----
-
-## 🚀 Quick Start
-
-### Performance Mode: Lazy Loading
-
-IronFlow includes **automatic lazy loading** for optimal performance:
-
-```php
-// config/ironflow.php
-'lazy_load' => [
-    'enabled' => true, // Active par défaut
-    'eager' => ['Core', 'Auth'], // Toujours chargés
-    'lazy' => [], // Tous les autres sont lazy
-],
-```
-
-**Gains typiques** :
-
-- **60-70% faster** boot time
-- **65-75% less** memory usage
-- Modules chargés uniquement quand nécessaires
-
-### Create a Module
+### Create Your First Module
 
 ```bash
 php artisan ironflow:module:make Blog \
@@ -290,31 +92,52 @@ php artisan ironflow:module:make Blog \
     --migration \
     --config \
     --asset \
-    --model \
-    --exposable
+    --model
 ```
 
 This generates:
 
-```markdown
+```diagram
 modules/Blog/
 ├── BlogModule.php
 ├── Http/Controllers/
-├── Services/
-├── Models/Post.php
+│   └── BlogController.php
+├── Models/
+│   └── Post.php
 ├── Routes/
 │   ├── web.php
 │   └── api.php
 ├── Database/Migrations/
+│   └── 2025_01_01_create_posts_table.php
 ├── Resources/
 │   ├── views/
+│   │   └── index.blade.php
 │   ├── css/
 │   └── js/
 ├── config/blog.php
 └── README.md
 ```
 
-### Basic Module Structure
+### Verify Installation
+
+```bash
+# Check routes are registered
+php artisan route:list | grep blog
+
+# Check module status
+php artisan ironflow:module:list
+
+# View statistics
+php artisan ironflow:lazy:stats
+```
+
+---
+
+## Core Concepts
+
+### BaseModule
+
+Base class for all IronFlow modules. **No longer extends ServiceProvider** - it's a pure structural contract.
 
 ```php
 <?php
@@ -326,7 +149,9 @@ use IronFlow\Core\ModuleMetaData;
 use IronFlow\Contracts\ViewableInterface;
 use IronFlow\Contracts\RoutableInterface;
 
-class BlogModule extends BaseModule implements ViewableInterface, RoutableInterface
+class BlogModule extends BaseModule implements 
+    ViewableInterface,
+    RoutableInterface
 {
     protected function getModuleName(): string
     {
@@ -344,224 +169,483 @@ class BlogModule extends BaseModule implements ViewableInterface, RoutableInterf
         ]);
     }
 
-    protected function registerServices(): void
+    public function register($app): void
     {
-        $this->app->singleton(PostService::class);
+        // Bind services to container
+        $app->singleton(PostService::class, function($app) {
+            return new PostService();
+        });
+    }
+
+    // Views and routes are auto-loaded by Anvil
+    // No need for loadViewsFrom() or loadRoutesFrom()
+}
+```
+
+[↑ Back to top](#ironflow-framework)
+
+### Anvil - The Orchestrator
+
+Anvil is the core engine that:
+
+- **Discovers** modules automatically
+- **Registers** their services
+- **Boots** them in dependency order
+- **Manages** lifecycle operations
+- **Exposes** services for inter-module communication
+
+```php
+use IronFlow\Facades\Anvil;
+
+// Get a module
+$module = Anvil::getModule('Blog');
+
+// Enable/disable
+Anvil::enable('Blog');
+Anvil::disable('Blog');
+
+// Get exposed service
+$postService = Anvil::getService('Blog', 'PostService');
+
+// Statistics
+$stats = Anvil::getStatistics();
+```
+
+**Architecture:**
+
+```diagram
+IronFlowServiceProvider
+    ↓
+Anvil::discover()      → Scan modules/ directory
+    ↓
+Anvil::registerAll()   → Call module->register($app)
+    ↓
+Anvil::bootAll()       → Load resources + call module->boot($app)
+    ↓
+Module Booted ✅
+```
+
+[↑ Back to top](#ironflow-framework)
+
+### ModuleMetaData
+
+Encapsulates all module information:
+
+```php
+new ModuleMetaData([
+    'name' => 'Blog',
+    'version' => '2.1.0',
+    'description' => 'Blog module with posts and comments',
+    'authors' => [
+        ['name' => 'John Doe', 'email' => 'john@example.com']
+    ],
+    'dependencies' => ['Auth', 'Settings'],
+    'required' => ['Auth'], // Must be present
+    'enabled' => true,
+    'priority' => 60, // Higher = boots first
+    'provides' => ['PostService', 'CommentService'],
+    'allowOverride' => false,
+    'linkedModules' => ['Admin', 'Analytics'],
+]);
+```
+
+[↑ Back to top](#ironflow-framework)
+
+### ModuleState
+
+State machine with validation:
+
+```diagram
+registered → preloaded → booting → booted
+                            ↓
+                         failed
+                            ↓
+                        disabled
+```
+
+```php
+$state = $module->getState();
+
+$state->isBooted();      // true/false
+$state->isFailed();      // true/false
+$state->getHistory();    // Array of state transitions
+$state->getLastError();  // Error details if failed
+```
+
+[↑ Back to top](#ironflow-framework)
+
+### Activable Interfaces
+
+Modules declare capabilities via interfaces:
+
+| Interface | Purpose | Auto-loaded by Anvil |
+|-----------|---------|----------------------|
+| `ViewableInterface` | Views with namespace | ✅ `loadViewsFrom()` |
+| `RoutableInterface` | Routes with prefix | ✅ `Route::group()` |
+| `MigratableInterface` | Database migrations | ✅ `loadMigrationsFrom()` |
+| `ConfigurableInterface` | Configuration | ✅ `mergeConfigFrom()` |
+| `TranslatableInterface` | Translations | ✅ `loadTranslationsFrom()` |
+| `PublishableInterface` | Assets/config publishing | ✅ `publishes()` |
+| `BootableInterface` | Custom boot logic | Calls `bootModule()` |
+| `ExposableInterface` | Service exposure | Registers with ServiceExposer |
+| `SeedableInterface` | Database seeding | Used by seed command |
+| `PermissionableInterface` | Permissions | Registers with PermissionSystem |
+
+**Example:**
+
+```php
+class MyModule extends BaseModule implements 
+    ViewableInterface,
+    RoutableInterface,
+    ConfigurableInterface
+{
+    // That's it! Resources are auto-loaded
+    // Views from: Resources/views (namespace: mymodule)
+    // Routes from: Routes/web.php and Routes/api.php  
+    // Config from: config/mymodule.php (key: mymodule)
+}
+```
+
+[↑ Back to top](#ironflow-framework)
+
+---
+
+## Performance
+
+### Lazy Loading
+
+IronFlow includes automatic lazy loading for optimal performance:
+
+```php
+// config/ironflow.php
+'lazy_load' => [
+    'enabled' => true,
+    'eager' => ['Core', 'Auth', 'Settings'], // Always loaded
+    'strategies' => [
+        'route' => true,    // Load on route match
+        'service' => true,  // Load on service access
+        'event' => true,    // Load on event trigger
+        'command' => true,  // Load on artisan command
+    ],
+    'preload' => [
+        'routes' => [
+            '#^admin/#' => ['Admin', 'Dashboard'],
+            '#^api/#' => ['Api'],
+        ],
+        'roles' => [
+            'admin' => ['Admin', 'Analytics'],
+            'user' => ['Blog'],
+        ],
+    ],
+],
+```
+
+**Commands:**
+
+```bash
+php artisan ironflow:lazy:stats       # View statistics
+php artisan ironflow:lazy:warmup      # Preload all modules
+php artisan ironflow:lazy:test Blog   # Test lazy loading
+php artisan ironflow:lazy:benchmark   # Compare eager vs lazy
+```
+
+[↑ Back to top](#ironflow-framework)
+
+### Benchmarks
+
+| Scenario | Without Lazy | With Lazy | Improvement |
+|----------|-------------|-----------|-------------|
+| **Small App (5-10 modules)** | 80-120ms | 25-40ms | **70% faster** |
+| **Medium App (15-30 modules)** | 150-250ms | 40-80ms | **65% faster** |
+| **Large App (50+ modules)** | 400-600ms | 80-150ms | **70% faster** |
+| **Memory** | 80-120MB | 20-35MB | **75% less** |
+
+[↑ Back to top](#ironflow-framework)
+
+---
+
+## Advanced Features
+
+### Event System
+
+Dedicated event bus for inter-module communication:
+
+```php
+use IronFlow\Facades\EventBus;
+
+// Dispatch event
+EventBus::dispatch('Blog', 'post.created', [
+    'post_id' => $post->id,
+    'title' => $post->title,
+]);
+
+// Listen to event
+EventBus::listen('Blog', 'post.created', function($event) {
+    $postId = $event->getData('post_id');
+    // Handle event
+}, priority: 10);
+
+// Subscribe to multiple events
+EventBus::subscribe('Admin', [
+    'Blog' => ['post.created', 'post.updated'],
+    'Shop' => ['order.created'],
+]);
+```
+
+**Features:**
+
+- Async support via queue
+- Priority-based listeners
+- Event history & debug mode
+- Statistics tracking
+
+```bash
+php artisan ironflow:events:stats --history=20
+```
+
+[↑ Back to top](#ironflow-framework)
+
+### Permissions
+
+Role-based access control per module:
+
+```php
+use IronFlow\Permissions\PermissionableInterface;
+
+class BlogModule extends BaseModule implements PermissionableInterface
+{
+    public function getPermissions(): array
+    {
+        return [
+            'view' => ['*'],                    // Public
+            'create' => ['user', 'editor'],     // Restricted
+            'edit' => ['editor', 'admin'],
+            'delete' => ['admin'],
+        ];
     }
 }
 ```
 
-### Module Management
+**Usage:**
+
+```php
+use IronFlow\Permissions\ModulePermissionSystem;
+
+$permissions = app(ModulePermissionSystem::class);
+
+// Check permission
+if ($permissions->check('Blog', 'edit', auth()->user())) {
+    // User can edit
+}
+
+// Middleware
+Route::middleware('module.permission:Blog,edit')->group(function () {
+    // Protected routes
+});
+```
+
+**Commands:**
 
 ```bash
-# List all modules
-php artisan ironflow:module:list
-
-# Enable a module
-php artisan ironflow:module:enable Blog
-
-# Disable a module
-php artisan ironflow:module:disable Blog
-
-# Export module for Packagist
-php artisan ironflow:module:publish Blog
-
-# Lazy loading commands
-php artisan ironflow:lazy:stats       # View statistics
-php artisan ironflow:lazy:warmup      # Preload all modules
-php artisan ironflow:lazy:test Blog   # Test lazy loading
-php artisan ironflow:lazy:benchmark   # Benchmark performance
+php artisan ironflow:permissions              # View all
+php artisan ironflow:permissions --module=Blog
+php artisan ironflow:permissions --role=admin
 ```
+
+[↑ Back to top](#ironflow-framework)
 
 ---
 
-## Module Lifecycle
+## Development Tools
 
-### 1. Registration Phase
+### Hot-Reload
+
+Reload modules without restarting server:
+
+```bash
+php artisan ironflow:hot-reload:watch
+php artisan ironflow:hot-reload:stats
+```
+
+**Configuration:**
 
 ```php
-public function register(): void
+'hot_reload' => [
+    'enabled' => env('IRONFLOW_HOT_RELOAD', app()->environment('local')),
+    'watch_paths' => [
+        'ModuleClass.php',
+        'Routes/*.php',
+        'Http/Controllers/*.php',
+    ],
+],
+```
+
+### Testing Utilities
+
+Complete test suite for modules:
+
+```php
+use IronFlow\Testing\ModuleTestCase;
+
+class BlogModuleTest extends ModuleTestCase
 {
-    // State: registered → preloaded
-    // Register services in the container
-    $this->app->singleton(PostService::class);
+    protected string $moduleName = 'Blog';
+    
+    public function test_module_boots()
+    {
+        $module = $this->bootModule();
+        
+        $this->assertModuleBooted('Blog');
+        $this->assertRouteExists('blog.index');
+        $this->assertViewExists('blog::index');
+        $this->assertServiceExposed('Blog', 'PostService');
+    }
 }
 ```
 
-### 2. Boot Phase
+**Available Assertions:**
 
-```php
-public function boot(): void
-{
-    // State: preloaded → booting → booted
-    // Register routes, views, migrations, etc.
-    $this->registerViews();
-    $this->registerRoutes();
-}
-```
+- `assertModuleExists/Registered/Booted/Enabled`
+- `assertRouteExists/Prefix`
+- `assertViewExists/NamespaceExists`
+- `assertServiceExposed/Accessible`
+- `assertModuleHasDependency`
+- `assertNoConflicts`
 
-### 3. Lifecycle Methods
-
-```php
-// Install module (run migrations, seed data)
-$module->install();
-
-// Enable module
-$module->enable();
-
-// Disable module
-$module->disable();
-
-// Update module
-$module->update();
-
-// Uninstall module (rollback migrations)
-$module->uninstall();
-```
+[↑ Back to top](#ironflow-framework)
 
 ---
 
-## Inter-Module Communication
+## Creating Modules
 
-### Exposing Services
+### Full Example
 
 ```php
-// In BlogModule
-public function expose(): array
+<?php
+
+namespace Modules\Blog;
+
+use IronFlow\Core\BaseModule;
+use IronFlow\Core\ModuleMetaData;
+use IronFlow\Contracts\ViewableInterface;
+use IronFlow\Contracts\RoutableInterface;
+use IronFlow\Contracts\MigratableInterface;
+use IronFlow\Contracts\ConfigurableInterface;
+use IronFlow\Contracts\BootableInterface;
+use IronFlow\Contracts\ExposableInterface;
+
+class BlogModule extends BaseModule implements
+    ViewableInterface,
+    RoutableInterface,
+    MigratableInterface,
+    ConfigurableInterface,
+    BootableInterface,
+    ExposableInterface
 {
-    return [
-        'public' => [
-            'PostService' => app(PostService::class),
-        ],
-        'linked' => [
-            'Admin' => [
+    protected function getModuleName(): string
+    {
+        return 'Blog';
+    }
+
+    protected function createMetadata(): ModuleMetaData
+    {
+        return new ModuleMetaData([
+            'name' => 'Blog',
+            'version' => '1.0.0',
+            'description' => 'Blog module with posts and comments',
+            'dependencies' => ['Auth'],
+            'enabled' => true,
+            'priority' => 60,
+        ]);
+    }
+
+    public function register($app): void
+    {
+        // Register services
+        $app->singleton(PostService::class, function($app) {
+            return new PostService();
+        });
+    }
+
+    public function bootModule(): void
+    {
+        // Custom boot logic
+        \Blade::directive('blogPost', function ($id) {
+            return "<?php echo renderPost($id); ?>";
+        });
+
+        \Event::listen('post.created', PostCreatedListener::class);
+    }
+
+    public function expose(): array
+    {
+        return [
+            'public' => [
                 'PostService' => app(PostService::class),
-                'moderation' => app(ModerationService::class),
             ],
-        ],
-    ];
+            'linked' => [
+                'Admin' => [
+                    'PostService' => app(PostService::class),
+                    'moderation' => app(ModerationService::class),
+                ],
+            ],
+        ];
+    }
+
+    // All interface methods use BaseModule defaults
+    // Override only if you need custom behavior
 }
 ```
 
-### Consuming Services
+### Directory Structure
 
-```php
-// From another module
-use IronFlow\Facades\Anvil;
-
-// Access public service
-$postService = Anvil::getService('Blog', 'PostService');
-
-// Access linked service (only if your module is linked)
-$moderation = Anvil::getService('Blog', 'moderation', 'Admin');
+```diagram
+modules/Blog/
+├── BlogModule.php
+├── Http/
+│   ├── Controllers/
+│   │   ├── PostController.php
+│   │   └── CommentController.php
+│   └── Middleware/
+├── Models/
+│   ├── Post.php
+│   └── Comment.php
+├── Services/
+│   ├── PostService.php
+│   └── CommentService.php
+├── Routes/
+│   ├── web.php
+│   └── api.php
+├── Database/
+│   ├── Migrations/
+│   │   └── 2025_01_01_create_posts_table.php
+│   └── Seeders/
+│       └── PostsSeeder.php
+├── Resources/
+│   ├── views/
+│   │   ├── index.blade.php
+│   │   └── show.blade.php
+│   ├── lang/
+│   │   └── en/
+│   ├── css/
+│   │   └── app.css
+│   └── js/
+│       └── app.js
+├── config/
+│   └── blog.php
+└── README.md
 ```
 
-### Linked Modules
-
-Declare module relationships in metadata:
-
-```php
-protected function createMetadata(): ModuleMetaData
-{
-    return new ModuleMetaData([
-        'name' => 'Admin',
-        'linkedModules' => ['Blog', 'User', 'Analytics'],
-    ]);
-}
-```
-
----
-
-## ⚠️ Conflict Detection
-
-IronFlow automatically detects:
-
-### Route Conflicts
-
-```php
-// If two modules use same route prefix
-Blog: /blog
-Shop: /blog  // ⚠️ CONFLICT DETECTED
-```
-
-### Migration Conflicts
-
-```php
-// If two modules create same table
-Blog: create_posts_table
-Forum: create_posts_table  // ⚠️ CONFLICT DETECTED
-```
-
-**Solution**: Use migration prefixes
-
-```php
-public function getMigrationPrefix(): string
-{
-    return 'blog_'; // Tables: blog_posts, blog_comments
-}
-```
-
-### View Namespace Conflicts
-
-```php
-// If two modules use same namespace
-Blog: blog::index
-News: blog::index  // ⚠️ CONFLICT DETECTED
-```
-
-### Config Key Conflicts
-
-```php
-// If two modules use same config key
-config('blog.key')
-config('blog.key')  // ⚠️ CONFLICT DETECTED
-```
-
----
-
-## Dependency Management
-
-### Declaring Dependencies
-
-```php
-protected function createMetadata(): ModuleMetaData
-{
-    return new ModuleMetaData([
-        'name' => 'Blog',
-        'dependencies' => ['Core', 'Auth'], // Soft dependencies
-        'required' => ['Core'], // Hard dependencies (must exist)
-    ]);
-}
-```
-
-### Boot Order
-
-Modules boot in this order:
-
-1. By dependencies (dependencies boot first)
-2. By priority (higher priority = boots first)
-
-```php
-// Core priority: 100 (boots first)
-// Auth priority: 90
-// Blog priority: 50 (boots last)
-```
-
-### Circular Dependency Detection
-
-```php
-// Blog depends on Comment
-// Comment depends on Blog
-// ⚠️ CIRCULAR DEPENDENCY DETECTED
-```
+[↑ Back to top](#ironflow-framework)
 
 ---
 
 ## Configuration
 
-### config/ironflow.php
+### Main Configuration
 
 ```php
+// config/ironflow.php
 return [
     // Module discovery path
     'path' => base_path('modules'),
@@ -572,21 +656,11 @@ return [
     // Auto-discover modules
     'auto_discover' => true,
     
-    // Module priorities (override)
-    'priorities' => [
-        'Core' => 100,
-        'Auth' => 90,
-    ],
-    
-    // Logging configuration
-    'logging' => [
+    // Lazy loading
+    'lazy_load' => [
         'enabled' => true,
-        'channel' => 'stack',
-        'log_events' => [
-            'registered' => true,
-            'booted' => true,
-            'failed' => true,
-        ],
+        'eager' => ['Core', 'Auth'],
+        'strategies' => ['route' => true, 'service' => true],
     ],
     
     // Conflict detection
@@ -598,170 +672,202 @@ return [
         'config' => true,
     ],
     
-    // Service exposure
-    'service_exposure' => [
-        'strict_mode' => true, // Only linked modules can access
-        'allow_public' => true, // Allow public services
+    // Logging
+    'logging' => [
+        'enabled' => true,
+        'channel' => 'stack',
+        'log_events' => [
+            'registered' => true,
+            'booted' => true,
+            'failed' => true,
+        ],
     ],
     
-    // Caching
-    'cache' => [
-        'enabled' => true,
-        'ttl' => 3600,
+    // Service exposure
+    'service_exposure' => [
+        'strict_mode' => true,
+        'allow_public' => true,
     ],
 ];
 ```
 
+[↑ Back to top](#ironflow-framework)
+
 ---
 
-## Advanced Usage
+## Testing
 
-### Custom Boot Logic
+### Unit Tests
 
 ```php
-public function bootModule(): void
+use IronFlow\Testing\ModuleTestCase;
+
+class BlogModuleTest extends ModuleTestCase
 {
-    // Register Blade directives
-    Blade::directive('blogPost', function ($id) {
-        return "<?php echo renderPost($id); ?>";
-    });
+    protected string $moduleName = 'Blog';
     
-    // Register event listeners
-    Event::listen('post.created', PostCreatedListener::class);
+    public function test_module_structure()
+    {
+        $this->assertModuleExists('Blog');
+        $this->assertModuleEnabled('Blog');
+    }
     
-    // Register view composers
-    View::composer('blog::sidebar', function ($view) {
-        $view->with('recent', Post::recent());
-    });
+    public function test_routes_registered()
+    {
+        $this->bootModule();
+        
+        $this->assertRouteExists('blog.index');
+        $this->assertRoutePrefix('blog');
+    }
+    
+    public function test_services_exposed()
+    {
+        $this->bootModule();
+        
+        $this->assertServiceExposed('Blog', 'PostService');
+        $this->assertServiceAccessible('Blog', 'PostService');
+    }
 }
 ```
 
-### Conditional Service Exposure
+### Integration Tests
 
 ```php
-public function getExposedForModule(string $moduleName): array
+public function test_inter_module_communication()
 {
-    if ($moduleName === 'Admin') {
-        return [
-            'PostService' => app(PostService::class),
-            'moderation' => app(ModerationService::class),
-        ];
-    }
+    $this->bootModule('Blog');
+    $this->bootModule('Admin');
     
-    if ($moduleName === 'Analytics') {
-        return [
-            'stats' => app(AnalyticsService::class),
-        ];
-    }
+    $postService = Anvil::getService('Blog', 'PostService', 'Admin');
+    $post = $postService->create(['title' => 'Test']);
     
-    return [];
+    $this->assertDatabaseHas('posts', ['title' => 'Test']);
 }
 ```
 
-### Module Statistics
-
-```php
-$stats = Anvil::getStatistics();
-// [
-//     'total' => 10,
-//     'enabled' => 8,
-//     'disabled' => 1,
-//     'failed' => 1,
-//     'booted' => 8,
-// ]
-```
+[↑ Back to top](#ironflow-framework)
 
 ---
 
-## Best Practices
+## API Reference
 
-### 1. Module Naming
-
-- Use PascalCase: `Blog`, `UserManagement`, `PaymentGateway`
-- Keep names descriptive and unique
-
-### 2. Dependencies
-
-- Minimize dependencies for better modularity
-- Use `required` only for critical dependencies
-- Document all dependencies in README
-
-### 3. Service Exposure
-
-- Expose only what's necessary
-- Use `linked` over `public` when possible
-- Document exposed services
-
-### 4. Migrations
-
-- Always use migration prefixes
-- Keep migrations module-specific
-- Never depend on other module's tables
-
-### 5. Testing
+### Anvil
 
 ```php
-// Test module registration
-$this->assertTrue(Anvil::hasModule('Blog'));
+// Module management
+Anvil::discover();                    // Discover modules
+Anvil::registerAll();                 // Register all modules
+Anvil::bootAll();                     // Boot all modules
+Anvil::getModule('Blog');             // Get module instance
+Anvil::hasModule('Blog');             // Check if exists
+Anvil::getModules();                  // Get all modules
 
-// Test service exposure
-$service = Anvil::getService('Blog', 'PostService');
-$this->assertInstanceOf(PostService::class, $service);
+// Lifecycle
+Anvil::enable('Blog');                // Enable module
+Anvil::disable('Blog');               // Disable module
+Anvil::install('Blog');               // Install (run migrations)
+Anvil::uninstall('Blog');             // Uninstall
 
-// Test state transitions
-$module->enable();
-$this->assertTrue($module->getState()->isBooted());
+// Services
+Anvil::getService('Blog', 'PostService');              // Public
+Anvil::getService('Blog', 'PostService', 'Admin');     // Linked
+Anvil::hasService('Blog', 'PostService');              // Check
+
+// Dependencies
+Anvil::getDependencies('Blog');       // Get dependencies
+Anvil::getDependents('Blog');         // Get dependents
+
+// Statistics
+Anvil::getStatistics();               // Module stats
+Anvil::clearCache();                  // Clear cache
 ```
+
+### EventBus
+
+```php
+EventBus::dispatch('Blog', 'post.created', $data);
+EventBus::dispatch('Blog', 'post.created', $data, async: true);
+EventBus::listen('Blog', 'post.created', $callback, priority: 10);
+EventBus::subscribe('Admin', ['Blog' => ['post.created']]);
+EventBus::forget('Blog', 'post.created');
+EventBus::getListeners('Blog', 'post.created');
+EventBus::getHistory(10);
+EventBus::getStatistics();
+```
+
+### ModulePermissionSystem
+
+```php
+$permissions->check('Blog', 'edit', $user);
+$permissions->grant('Blog', 'moderate', 'moderator');
+$permissions->revoke('Blog', 'moderate', 'moderator');
+$permissions->getModulePermissions('Blog');
+$permissions->getPermissionsByRole('admin');
+$permissions->export();
+```
+
+[↑ Back to top](#ironflow-framework)
 
 ---
 
-## Troubleshooting
+## 🤝 Contributing
 
-### Module Not Found
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+### Development Setup
 
 ```bash
-# Clear cache
-php artisan ironflow:clear
-
-# Check module path
-config('ironflow.path') // Should point to modules/
+git clone https://github.com/ironflow/ironflow.git
+cd ironflow
+composer install
+composer test
 ```
 
-### Circular Dependency Error
+### Running Tests
 
-```php
-// Check dependencies
-$deps = Anvil::getDependencies('Blog');
+```bash
+composer test
+composer test:unit
+composer test:integration
+composer test:coverage
 ```
 
-### Service Not Accessible
-
-```php
-// Check if module exposes service
-Anvil::hasService('Blog', 'PostService'); // true/false
-
-// Check if your module is linked
-$metadata->isLinkedWith('Admin'); // true/false
-```
+[↑ Back to top](#ironflow-framework)
 
 ---
 
-## Contributing
+## 📄 License
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+IronFlow is open-sourced software licensed under the [MIT license](LICENSE.md).
 
-## Security
+---
 
-If you discover any security vulnerabilities, please email `ironflow.framework@gmail.com`.
+## 🙏 Credits
 
-## License
+Built with ❤️ by the [IronFlow Team](https://github.com/ironflow)
 
-The MIT License (MIT). Please see [LICENSE.md](LICENSE.md) for more information.
+Inspired by Laravel Modules but designed for enterprise-grade modular applications.
 
-## Changelog
+---
 
-Please see [CHANGELOG.md](CHANGELOG.md) for recent changes.
+## 📞 Support
 
-## Credits
+- **Documentation**: [https://ironflow.dev/docs](https://ironflow.dev/docs)
+- **Issues**: [GitHub Issues](https://github.com/ironflow/ironflow/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ironflow/ironflow/discussions)
+- **Twitter**: [@ironflow_dev](https://twitter.com/ironflow_dev)
 
-Built with ❤️ by Aure Dulvresse
+---
+
+<p align="center">
+  <strong>IronFlow - Build modular Laravel applications at scale</strong>
+</p>
+
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-core-concepts">Core Concepts</a> •
+  <a href="#-advanced-features">Advanced Features</a> •
+  <a href="#-api-reference">API Reference</a>
+</p>
+
+[↑ Back to top](#ironflow-framework)
