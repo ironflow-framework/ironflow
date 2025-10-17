@@ -1,0 +1,78 @@
+<?php
+
+namespace {{namespace}}\{{name}};
+
+use IronFlow\Core\BaseModule;
+use IronFlow\Core\ModuleMetaData;
+use IronFlow\Contracts\BootableInterface;
+
+class {{name}}Module extends BaseModule implements BootableInterface
+{
+    /**
+     * Get module name.
+     *
+     * @return string
+     */
+    protected function getModuleName(): string
+    {
+        return '{{name}}';
+    }
+
+    /**
+     * Create module metadata.
+     *
+     * @return ModuleMetaData
+     */
+    protected function createMetadata(): ModuleMetaData
+    {
+        return new ModuleMetaData([
+            'name' => '{{name}}',
+            'version' => '1.0.0',
+            'description' => '{{name}} module for IronFlow',
+            'authors' => [
+                [
+                    'name' => 'Your Name',
+                    'email' => 'your.email@example.com',
+                ],
+            ],
+            'dependencies' => [],
+            'required' => [],
+            'enabled' => true,
+            'priority' => 50,
+            'provides' => [],
+            'allowOverride' => false,
+        ]);
+    }
+
+     /**
+     * Register module services.
+     *
+     * @return void
+     */
+    public function register(): void
+    {
+        // Register your services here
+    }
+    
+    /**
+     * Boot module.
+     *
+     * @return void
+     */
+    public function boot(): void
+    {
+        // Additional boot logic if needed
+        // Note: Views, routes, migrations are already loaded by IronFlow
+    }
+
+    /**
+     * Custom boot logic (BootableInterface).
+     * Called AFTER views, routes, etc. are loaded.
+     *
+     * @return void
+     */
+    public function bootModule(): void
+    {
+        // Custom boot logic here
+    }
+}

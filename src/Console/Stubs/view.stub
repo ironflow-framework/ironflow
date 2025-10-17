@@ -1,0 +1,10 @@
+@extends('{{lower_module}}::layouts.app')
+
+@section('title', '{{name}}')
+
+@section('content')
+<div class="container">
+    <h1>{{name}}</h1>
+    <p>This is the {{lower_name}} view for the {{module}} module.</p>
+</div>
+@endsection

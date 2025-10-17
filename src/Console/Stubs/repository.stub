@@ -1,0 +1,82 @@
+<?php
+
+namespace {{namespace}}\{{module}}\Repositories;
+
+use {{namespace}}\{{module}}\Models\{{model}};
+use Illuminate\Database\Eloquent\Collection;
+
+class {{name}}Repository
+{
+    /**
+     * Get all {{lower_name}}.
+     *
+     * @return Collection
+     */
+    public function all(): Collection
+    {
+        return {{model}}::all();
+    }
+
+    /**
+     * Find by ID.
+     *
+     * @param int $id
+     * @return {{model}}|null
+     */
+    public function findById(int $id): ?{{model}}
+    {
+        return {{model}}::find($id);
+    }
+
+    /**
+     * Create.
+     *
+     * @param array $data
+     * @return {{model}}
+     */
+    public function create(array $data): {{model}}
+    {
+        return {{model}}::create($data);
+    }
+
+    /**
+     * Update.
+     *
+     * @param {{model}} ${{lower_model}}
+     * @param array $data
+     * @return {{model}}
+     */
+    public function update({{model}} ${{lower_model}}, array $data): {{model}}
+    {
+        ${{lower_model}}->update($data);
+        return ${{lower_model}}->fresh();
+    }
+
+    /**
+     * Delete.
+     *
+     * @param {{model}} ${{lower_model}}
+     * @return bool
+     */
+    public function delete({{model}} ${{lower_model}}): bool
+    {
+        return ${{lower_model}}->delete();
+    }
+
+    /**
+     * Find by criteria.
+     *
+     * @param array $criteria
+     * @return Collection
+     */
+    public function findWhere(array $criteria): Collection
+    {
+        $query = {{model}}::query();
+
+        foreach ($criteria as $key => $value) {
+            $query->where($key, $value);
+        }
+
+        return $query->get();
+    }
+}
