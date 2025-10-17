@@ -6,72 +6,49 @@ namespace IronFlow\Core;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Cache;
+use IronFlow\Contracts\BootableInterface;
 use IronFlow\Exceptions\ModuleException;
-use IronFlow\Exceptions\DependencyException;
 use IronFlow\Support\ModuleRegistry;
 use IronFlow\Support\DependencyResolver;
 use IronFlow\Support\ServiceExposer;
 use IronFlow\Support\ConflictDetector;
+use IronFlow\Contracts\ConfigurableInterface;
 use IronFlow\Contracts\ExposableInterface;
+use IronFlow\Contracts\MigratableInterface;
+use IronFlow\Contracts\PublishableInterface;
+use IronFlow\Contracts\RoutableInterface;
+use IronFlow\Contracts\TranslatableInterface;
+use IronFlow\Contracts\ViewableInterface;
 
 /**
  * Anvil - Module Manager and Orchestrator
  *
- * Manages the complete lifecycle of IronFlow modules including discovery,
- * registration, dependency resolution, service exposure, and conflict detection.
- *
- * @author Aure Dulvresse
- * @package IronFlow/Core
- * @since 1.0.0
+ * Now responsible for register() and boot() operations on modules.
  */
 class Anvil
 {
-    /**
-     * @var ModuleRegistry
-     */
     protected ModuleRegistry $registry;
-
-    /**
-     * @var DependencyResolver
-     */
     protected DependencyResolver $dependencyResolver;
-
-    /**
-     * @var ServiceExposer
-     */
     protected ServiceExposer $serviceExposer;
-
-    /**
-     * @var ConflictDetector
-     */
     protected ConflictDetector $conflictDetector;
-
-    /**
-     * @var Collection Registered modules
-     */
+    protected Application $app;
     protected Collection $modules;
-
-    /**
-     * @var bool Whether modules have been discovered
-     */
     protected bool $discovered = false;
+    protected bool $registered = false;
+    protected bool $booted = false;
 
-    /**
-     * Create a new Anvil instance.
-     *
-     * @param ModuleRegistry $registry
-     * @param DependencyResolver $dependencyResolver
-     * @param ServiceExposer $serviceExposer
-     * @param ConflictDetector $conflictDetector
-     */
     public function __construct(
+        Application $app,
         ModuleRegistry $registry,
         DependencyResolver $dependencyResolver,
         ServiceExposer $serviceExposer,
         ConflictDetector $conflictDetector
     ) {
+        $this->app = $app;
         $this->registry = $registry;
         $this->dependencyResolver = $dependencyResolver;
         $this->serviceExposer = $serviceExposer;
@@ -80,10 +57,7 @@ class Anvil
     }
 
     /**
-     * Discover and register all modules.
-     *
-     * @return void
-     * @throws ModuleException
+     * Discover all modules.
      */
     public function discover(): void
     {
@@ -109,24 +83,14 @@ class Anvil
     }
 
     /**
-     * Register a module from a path.
-     *
-     * @param string $path
-     * @return void
-     * @throws ModuleException
+     * Register module from path.
      */
     protected function registerModuleFromPath(string $path): void
     {
         $moduleName = basename($path);
         $moduleClass = $this->findModuleClass($path, $moduleName);
 
-        if (!$moduleClass) {
-            Log::warning("[IronFlow] Module class not found for: {$moduleName}");
-            return;
-        }
-
-        if (!class_exists($moduleClass)) {
-            Log::warning("[IronFlow] Module class does not exist: {$moduleClass}");
+        if (!$moduleClass || !class_exists($moduleClass)) {
             return;
         }
 
@@ -135,10 +99,6 @@ class Anvil
 
     /**
      * Find module class.
-     *
-     * @param string $path
-     * @param string $moduleName
-     * @return string|null
      */
     protected function findModuleClass(string $path, string $moduleName): ?string
     {
@@ -158,16 +118,12 @@ class Anvil
     }
 
     /**
-     * Register a module.
-     *
-     * @param string|BaseModule $module
-     * @return void
-     * @throws ModuleException
+     * Register a module instance.
      */
     public function registerModule(string|BaseModule $module): void
     {
         if (is_string($module)) {
-            $module = app($module);
+            $module = new $module();
         }
 
         if (!$module instanceof BaseModule) {
@@ -177,33 +133,69 @@ class Anvil
         $metadata = $module->getMetadata();
         $moduleName = $metadata->getName();
 
-        // Check if already registered
         if ($this->hasModule($moduleName)) {
             throw new ModuleException("Module {$moduleName} is already registered");
         }
 
-        // Call register() method to transition state properly
-        $module->register();
-
-        // Register in registry
         $this->registry->register($moduleName, $module);
         $this->modules->put($moduleName, $module);
 
-        Log::info("[IronFlow] Module registered: {$moduleName}");
+        Log::info("[IronFlow] Module discovered: {$moduleName}");
     }
 
     /**
-     * Boot all modules in dependency order.
-     *
-     * @return void
-     * @throws DependencyException
+     * Register all modules (call their register() method).
+     */
+    public function registerAll(): void
+    {
+        if ($this->registered) {
+            return;
+        }
+
+        foreach ($this->modules as $name => $module) {
+            $this->registerModuleServices($module);
+        }
+
+        $this->registered = true;
+    }
+
+    /**
+     * Register a single module's services.
+     */
+    protected function registerModuleServices(BaseModule $module): void
+    {
+        $name = $module->getName();
+
+        if (!$module->getMetadata()->isEnabled()) {
+            return;
+        }
+
+        try {
+            $module->getState()->transitionTo(ModuleState::STATE_PRELOADED);
+
+            // Call module's register method
+            $module->register($this->app);
+
+            $this->logModuleEvent('registered', $name);
+        } catch (\Throwable $e) {
+            $module->getState()->markAsFailed($e);
+            $this->logModuleEvent('failed', $name, 'error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Boot all modules.
      */
     public function bootAll(): void
     {
-        // Resolve dependencies
+        if ($this->booted) {
+            return;
+        }
+
+        // Resolve boot order
         $bootOrder = $this->dependencyResolver->resolve($this->modules);
 
-        // Detect conflicts before booting
+        // Detect conflicts
         if (config('ironflow.conflict_detection.enabled', true)) {
             $conflicts = $this->conflictDetector->detect($this->modules);
             if (!empty($conflicts)) {
@@ -215,28 +207,171 @@ class Anvil
         foreach ($bootOrder as $moduleName) {
             $module = $this->modules->get($moduleName);
 
-            if (!$module->getMetadata()->isEnabled()) {
+            if (!$module || !$module->getMetadata()->isEnabled()) {
                 continue;
             }
 
-            try {
-                $module->boot();
+            $this->bootModule($module);
+        }
 
-                // Expose services if module implements ExposableInterface
-                if ($module instanceof ExposableInterface) {
-                    $this->serviceExposer->expose($moduleName, $module->expose());
-                }
-            } catch (\Throwable $e) {
-                Log::error("[IronFlow] Failed to boot module: {$moduleName}", [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-                throw $e;
+        $this->booted = true;
+    }
+
+    /**
+     * Boot a single module.
+     */
+    public function bootModule(BaseModule $module): void
+    {
+        $name = $module->getName();
+
+        try {
+            $module->getState()->transitionTo(ModuleState::STATE_BOOTING);
+
+            // Load configuration
+            if ($module instanceof ConfigurableInterface) {
+                $this->loadModuleConfig($module);
+            }
+
+            // Load translations
+            if ($module instanceof TranslatableInterface) {
+                $this->loadModuleTranslations($module);
+            }
+
+            // Load views
+            if ($module instanceof ViewableInterface) {
+                $this->loadModuleViews($module);
+            }
+
+            // Load routes
+            if ($module instanceof RoutableInterface) {
+                $this->loadModuleRoutes($module);
+            }
+
+            // Load migrations
+            if ($module instanceof MigratableInterface) {
+                $this->loadModuleMigrations($module);
+            }
+
+            // Register publishables
+            if ($module instanceof PublishableInterface) {
+                $this->registerModulePublishables($module);
+            }
+
+            // Call module's boot method
+            $module->boot($this->app);
+
+            // Custom boot logic
+            if ($module instanceof BootableInterface) {
+                $module->bootModule();
+            }
+
+            // Expose services
+            if ($module instanceof ExposableInterface) {
+                $this->serviceExposer->expose($name, $module->expose());
+            }
+
+            $module->getState()->transitionTo(ModuleState::STATE_BOOTED);
+            $this->logModuleEvent('booted', $name);
+        } catch (\Throwable $e) {
+            $module->getState()->markAsFailed($e);
+            $this->logModuleEvent('failed', $name, 'error', $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Load module configuration.
+     */
+    protected function loadModuleConfig(BaseModule $module): void
+    {
+        $configPath = $module->getConfigPath();
+
+        if (File::exists($configPath)) {
+            $config = require $configPath;
+            config([$module->getConfigKey() => array_merge(
+                config($module->getConfigKey(), []),
+                $config
+            )]);
+        }
+    }
+
+    /**
+     * Load module translations.
+     */
+    protected function loadModuleTranslations(BaseModule $module): void
+    {
+        $path = $module->getTranslationPath();
+
+        if (File::isDirectory($path)) {
+            $this->app['translator']->addNamespace($module->getTranslationNamespace(), $path);
+        }
+    }
+
+    /**
+     * Load module views.
+     */
+    protected function loadModuleViews(BaseModule $module): void
+    {
+        $viewPaths = $module->getViewPaths();
+        $namespace = $module->getViewNamespace();
+
+        foreach ($viewPaths as $path) {
+            if (File::isDirectory($path)) {
+                $this->app['view']->addNamespace($namespace, $path);
             }
         }
     }
 
     /**
+     * Load module routes.
+     */
+    protected function loadModuleRoutes(BaseModule $module): void
+    {
+        $routeFiles = $module->getRouteFiles();
+        $middleware = $module->getRouteMiddleware();
+        $prefix = $module->getRoutePrefix();
+
+        foreach ($routeFiles as $type => $file) {
+            if (!File::exists($file)) {
+                continue;
+            }
+
+            Route::middleware($middleware[$type] ?? [])
+                ->prefix($type === 'api' ? 'api/' . $prefix : $prefix)
+                ->name($module->getViewNamespace() . '.')
+                ->group($file);
+        }
+    }
+
+    /**
+     * Load module migrations.
+     */
+    protected function loadModuleMigrations(BaseModule $module): void
+    {
+        $path = $module->getMigrationPath();
+
+        if (File::isDirectory($path)) {
+            $this->app['migrator']->path($path);
+        }
+    }
+
+    /**
+     * Register module publishables.
+     */
+    protected function registerModulePublishables(BaseModule $module): void
+    {
+        if (!$this->app->runningInConsole()) {
+            return;
+        }
+
+        $name = $module->getName();
+
+        // This requires access to ServiceProvider's publishes method
+        // We'll need to call this from IronFlowServiceProvider
+        event('ironflow.module.publishables', [$name, $module]);
+    }
+
+     /**
      * Get a registered module.
      *
      * @param string $name
@@ -444,4 +579,37 @@ class Anvil
             'booted' => $this->modules->filter(fn($m) => $m->getState()->isBooted())->count(),
         ];
     }
+
+     /**
+     * Log module event.
+     *
+     * @param string $event
+     * @param string $moduleName
+     * @param string $level
+     * @param string|null $message
+     * @return void
+     */
+    protected function logModuleEvent(string $event, string $moduleName, string $level = 'info', ?string $message = null): void
+    {
+        if (!config('ironflow.logging.enabled', true)) {
+            return;
+        }
+
+        $logModuleEvents = config('ironflow.logging.log_events', []);
+        if (!($logModuleEvents[$event] ?? false)) {
+            return;
+        }
+
+        $logMessage = "[IronFlow] Module {$moduleName} {$event}";
+        if ($message) {
+            $logMessage .= ": {$message}";
+        }
+
+        $channel = config('ironflow.logging.channel', 'stack');
+        Log::channel($channel)->$level($logMessage, [
+            'module' => $moduleName,
+            'event' => $event,
+        ]);
+    }
 }
+
