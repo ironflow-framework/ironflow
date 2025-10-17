@@ -47,21 +47,19 @@ class {{name}}Module extends BaseModule implements BootableInterface
      /**
      * Register module services.
      *
-     * @param \Illuminate\Contracts\Foundation\Application $app
      * @return void
      */
-    public function register($app): void
+    public function register(): void
     {
         // Register your services here
-    }*
+    }
     
     /**
      * Boot module.
      *
-     * @param \Illuminate\Contracts\Foundation\Application $app
      * @return void
      */
-    public function boot($app): void
+    public function boot(): void
     {
         // Additional boot logic if needed
         // Note: Views, routes, migrations are already loaded by IronFlow
