@@ -169,10 +169,10 @@ class BlogModule extends BaseModule implements
         ]);
     }
 
-    public function register($app): void
+    public function register(): void
     {
         // Bind services to container
-        $app->singleton(PostService::class, function($app) {
+        $this->app->singleton(PostService::class, function($app) {
             return new PostService();
         });
     }
@@ -559,10 +559,10 @@ class BlogModule extends BaseModule implements
         ]);
     }
 
-    public function register($app): void
+    public function register(): void
     {
         // Register services
-        $app->singleton(PostService::class, function($app) {
+        $this->app->singleton(PostService::class, function($app) {
             return new PostService();
         });
     }
@@ -581,12 +581,12 @@ class BlogModule extends BaseModule implements
     {
         return [
             'public' => [
-                'PostService' => app(PostService::class),
+                'PostService' => $this->app->make(PostService::class),
             ],
             'linked' => [
                 'Admin' => [
-                    'PostService' => app(PostService::class),
-                    'moderation' => app(ModerationService::class),
+                    'PostService' => $this->app->make(PostService::class),
+                    'moderation' => $this->app->make(ModerationService::class),
                 ],
             ],
         ];
@@ -599,7 +599,7 @@ class BlogModule extends BaseModule implements
 
 ### Directory Structure
 
-```diagram
+```markdown
 modules/Blog/
 ├── BlogModule.php
 ├── Http/
