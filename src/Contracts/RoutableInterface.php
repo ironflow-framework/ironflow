@@ -31,11 +31,4 @@ interface RoutableInterface
      * @return string|null
      */
     public function getRoutePrefix(): ?string;
-
-    /**
-     * Register module routes.
-     *
-     * @return void
-     */
-    public function registerRoutes(): void;
 }

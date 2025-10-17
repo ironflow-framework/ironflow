@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2025-10-17
+
+### Added
+
+- Add ModuleTestCase for module testing
+
+### Changed
+
+- Update interfaces contracts and remove register method in contract
+
+## [3.0.0] - 2025-10-14
+
+### Added
+
+- Add TranslatableInterface
+- Add Module Permission System
+- Add Module Event System
+
+### Changed
+
+- Rename InfoCommand -> InfoModuleCommand
+- Module Architecture Refactoring
+  - Base class for all IronFlow modules (NO LONGER extends ServiceProvider).
+  - Anvil class register and boot modules
+  - IronFlowServiceProvider : handles ALL module loading and registration.
+- Use output interface in Commands
+- Update all Commands
+- Update MigratableInterface
+- Update README
+
 ## [2.1.0] - 2025-10-12
 
 ### Added
@@ -33,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - BaseModule refactored to remove the ModuleInterface implementation.
-- Renamed method metadata() → createMetadata() in BaseModule.
+- Renamed method metadata() -> createMetadata() in BaseModule.
 - Update ModuleMetaData & ModuleState
 - Updated all global interface contracts for consistency and clarity.
 - Using Laravel Cache system
@@ -47,13 +77,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 2025-10-06
 
-Added
+### Added
 
-Introduced expose() method for modules to define public APIs and shared resources.
-
-Added collectExposed() to Anvil for centralized resource collection.
-
-Enabled explicit inter-module communication through the exposure system.
+- Introduced expose() method for modules to define public APIs and shared resources.
+- Added collectExposed() to Anvil for centralized resource collection.
+- Enabled explicit inter-module communication through the exposure system.
 
 ## [1.2.0] - 2025-10-05
 
@@ -67,11 +95,11 @@ Enabled explicit inter-module communication through the exposure system.
 ### Changed
 
 - Updated module folder structure:
-- Moved Controllers/ → Http/.
+- Moved Controllers/ -> Http/.
 - Improved MakeModuleControllerCommand.
 - Updated ModuleCreateCommand for new directory layout.
 
-## [1.0.0] - 2025-10-05
+## [1.0.0] - 2025-09-30
 
 ### Added
 
@@ -98,7 +126,7 @@ Enabled explicit inter-module communication through the exposure system.
 - Full developer documentation.
 - Features
   - Laravel 12+ compatibility.
-  - PHP 8.3 support.
+  - PHP 8.2 support.
   - Module caching for faster performance.
   - Auto-discovery and auto-boot mechanisms.
   - Strict mode validation.
@@ -114,7 +142,8 @@ Enabled explicit inter-module communication through the exposure system.
 
 ## Releases
 
-[Unreleased]: https://github.com/ironflow-framework/ironflow/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/ironflow-framework/ironflow/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/ironflow/ironflow-framework/releases/tag/v3.0.0
 [2.1.0]: https://github.com/ironflow/ironflow-framework/releases/tag/v2.1.0
 [2.0.0]: https://github.com/ironflow/ironflow-framework/releases/tag/v2.0.0
 [1.3.0]: https://github.com/ironflow-framework/ironflow/releases/tag/v1.3.0
