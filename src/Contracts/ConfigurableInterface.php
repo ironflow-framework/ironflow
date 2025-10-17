@@ -26,13 +26,6 @@ interface ConfigurableInterface
     public function getConfigKey(): string;
 
     /**
-     * Register module configuration.
-     *
-     * @return void
-     */
-    public function registerConfig(): void;
-
-    /**
      * Merge module config with application config.
      *
      * @return void

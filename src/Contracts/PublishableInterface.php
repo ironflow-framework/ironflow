@@ -31,11 +31,4 @@ interface PublishableInterface
      * @return array
      */
     public function getPublishableViews(): array;
-
-    /**
-     * Register publishable resources.
-     *
-     * @return void
-     */
-    public function registerPublishables(): void;
 }

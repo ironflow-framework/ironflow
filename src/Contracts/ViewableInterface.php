@@ -24,11 +24,4 @@ interface ViewableInterface
      * @return array
      */
     public function getViewPaths(): array;
-
-    /**
-     * Register module views.
-     *
-     * @return void
-     */
-    public function registerViews(): void;
 }
