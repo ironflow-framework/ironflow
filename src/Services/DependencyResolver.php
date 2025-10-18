@@ -42,7 +42,9 @@ class DependencyResolver
             if (!isset($allModules[$dependency])) {
                 if (config('ironflow.exceptions.throw_on_missing_dependency', true)) {
                     throw new ModuleException(
-                        "Module {$name} depends on {$dependency}, but it is not registered"
+                        "Module '{$name}' depends on '{$dependency}', but it is not registered. " .
+                            "Available modules: " . implode(', ', array_keys($allModules)) . ". " .
+                            "Suggestion: Install module '{$dependency}' or remove it from dependencies."
                     );
                 }
                 continue;
