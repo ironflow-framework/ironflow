@@ -15,5 +15,6 @@ class ModuleNotFoundException extends ModuleException
     {
         $message = "Module '{$moduleName}' not found";
         parent::__construct($message, $code, $previous);
+        $this->setContext($moduleName, 'discovery');
     }
 }

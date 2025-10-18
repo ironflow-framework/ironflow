@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace IronFlow\Exceptions;
 
 /**
- * ModuleBootException
+ * ServiceNotFoundException
  *
  * Thrown when a module fails to boot
  */
-class ModuleBootException extends ModuleException
+class ServiceNotFoundException extends \Exception
 {
     //
 }
