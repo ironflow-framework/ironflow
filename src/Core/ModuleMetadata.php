@@ -25,7 +25,15 @@ class ModuleMetaData
         public readonly array $provides = [],
         public readonly string $path = '',
         public readonly string $namespace = '',
-    ) {}
+    ) {
+        if (empty($name)) {
+            throw new \InvalidArgumentException('Module name cannot be empty');
+        }
+
+        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) {
+            throw new \InvalidArgumentException('Version must follow semver format');
+        }
+    }
 
     public function toArray(): array
     {
