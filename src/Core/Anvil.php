@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace IronFlow\Core;
 
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use IronFlow\Core\Discovery\{ModuleDiscovery, ManifestCache, ConflictDetector};
-use IronFlow\Support\ModuleRegistry;
 use IronFlow\Services\{ServiceRegistry, LazyLoader, DependencyResolver};
 use IronFlow\Events\ModuleEventDispatcher;
 use IronFlow\Exceptions\{ModuleException, ExceptionHandler};
@@ -25,7 +23,6 @@ use IronFlow\Events\Events\{ModuleRegistered, ModuleBooting, ModuleBooted, Modul
 class Anvil
 {
     protected Application $app;
-    protected ModuleRegistry $registry;
     protected array $modules = [];
     protected bool $booted = false;
     protected ModuleDiscovery $discovery;
@@ -41,7 +38,6 @@ class Anvil
     {
         $this->app = $app;
         $this->discovery = new ModuleDiscovery($app);
-        $this->registry = new ModuleRegistry();
         $this->cache = new ManifestCache($app);
         $this->serviceRegistry = new ServiceRegistry($app);
         $this->lazyLoader = new LazyLoader($app);
@@ -118,7 +114,6 @@ class Anvil
             // Call register method
             $module->register();
 
-            $this->registry->register($moduleName, $module);
             $this->modules[$moduleName] = $module;
 
             // Dispatch event
