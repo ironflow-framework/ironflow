@@ -6,7 +6,6 @@ namespace IronFlow\Services;
 
 use Illuminate\Contracts\Foundation\Application;
 use IronFlow\Exceptions\ServiceNotFoundException;
-use IronFlow\Events\Events\ServiceExposed;
 use Illuminate\Support\Facades\Log;
 
 class ServiceRegistry
@@ -104,6 +103,13 @@ class ServiceRegistry
         }
 
         $instance = $this->app->make($serviceData['class']);
+
+        if (isset($serviceData['interface']) && !($instance instanceof $serviceData['interface'])) {
+            throw new \RuntimeException(
+                "Service {$serviceName} must implement {$serviceData['interface']}"
+            );
+        }
+
         $this->serviceInstances[$serviceName] = $instance;
 
         return $instance;

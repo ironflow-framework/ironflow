@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace IronFlow\Core;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use IronFlow\Core\Discovery\{ModuleDiscovery, ManifestCache, ConflictDetector};
 use IronFlow\Support\ModuleRegistry;
@@ -117,7 +118,7 @@ class Anvil
             // Call register method
             $module->register();
 
-            $this->registry->register($moduleName, $module);    
+            $this->registry->register($moduleName, $module);
             $this->modules[$moduleName] = $module;
 
             // Dispatch event
@@ -151,8 +152,25 @@ class Anvil
         }
 
         // Boot modules in dependency order
-        foreach ($bootOrder as $moduleName) {
-            $this->bootModule($moduleName);
+        DB::beginTransaction();
+        $bootedModules = [];
+
+        try {
+            foreach ($bootOrder as $moduleName) {
+                $this->bootModule($moduleName);
+                $bootedModules[] = $moduleName;
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            // Rollback modules bootés
+            foreach (array_reverse($bootedModules) as $moduleName) {
+                $this->rollbackModule($moduleName);
+            }
+
+            throw $e;
         }
     }
 
