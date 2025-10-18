@@ -1,64 +1,13 @@
 <?php
 
-namespace {{namespace}}\{{module}}\Services;
-
-use {{namespace}}\{{module}}\Models\{{model}};
+namespace {{namespace}}\Services;
 
 class {{name}}Service
 {
-    /**
-     * Get all {{lower_name}}.
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function all()
+    public function __construct()
     {
-        return {{model}}::all();
+        //
     }
 
-    /**
-     * Find {{lower_name}} by ID.
-     *
-     * @param int $id
-     * @return {{model}}|null
-     */
-    public function find(int $id): ?{{model}}
-    {
-        return {{model}}::find($id);
-    }
-
-    /**
-     * Create a new {{lower_name}}.
-     *
-     * @param array $data
-     * @return {{model}}
-     */
-    public function create(array $data): {{model}}
-    {
-        return {{model}}::create($data);
-    }
-
-    /**
-     * Update {{lower_name}}.
-     *
-     * @param {{model}} ${{lower_model}}
-     * @param array $data
-     * @return {{model}}
-     */
-    public function update({{model}} ${{lower_model}}, array $data): {{model}}
-    {
-        ${{lower_model}}->update($data);
-        return ${{lower_model}}->fresh();
-    }
-
-    /**
-     * Delete {{lower_name}}.
-     *
-     * @param {{model}} ${{lower_model}}
-     * @return bool
-     */
-    public function delete({{model}} ${{lower_model}}): bool
-    {
-        return ${{lower_model}}->delete();
-    }
+    // Add your service methods here
 }

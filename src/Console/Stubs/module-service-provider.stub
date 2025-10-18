@@ -1,0 +1,22 @@
+<?php
+
+namespace {{namespace}};
+
+use IronFlow\Core\ModuleServiceProvider;
+
+class {{name}}ServiceProvider extends ModuleServiceProvider
+{
+    public function register(): void
+    {
+        parent::register();
+
+        // Additional registrations
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        // Additional boot logic
+    }
+}
