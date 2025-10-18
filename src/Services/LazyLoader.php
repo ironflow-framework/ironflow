@@ -4,7 +4,7 @@ namespace IronFlow\Services;
 
 use Illuminate\Contracts\Foundation\Application;
 use IronFlow\Core\BaseModule;
-use IronFlow\Contracts\{RoutableInterface, ViewableInterface, ConfigurableInterface};
+use IronFlow\Contracts\{RoutableInterface, ViewableInterface, ConfigurableInterface, ExposableInterface};
 
 class LazyLoader
 {
@@ -117,12 +117,23 @@ class LazyLoader
     }
 
     /**
-     * Load module services (placeholder for lazy loading)
+     * Load module services
      */
     protected function loadServices(BaseModule $module): void
     {
-        // Services are loaded via ServiceRegistry
-        // This method is kept for consistency
+        if (!$module instanceof ExposableInterface) {
+            return;
+        }
+
+        $services = $module->expose();
+
+        foreach ($services as $serviceName => $serviceClass) {
+            // Save as lazy proxy
+            $this->app->bindIf(
+                $serviceClass,
+                fn($app, $serviceClass) => $app->make($serviceClass)
+            );
+        }
     }
 
     /**
