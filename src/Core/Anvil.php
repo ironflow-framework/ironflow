@@ -4,444 +4,343 @@ declare(strict_types=1);
 
 namespace IronFlow\Core;
 
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Log;
-use IronFlow\Exceptions\ModuleException;
-use IronFlow\Exceptions\DependencyException;
+use IronFlow\Core\Discovery\{ModuleDiscovery, ManifestCache, ConflictDetector};
 use IronFlow\Support\ModuleRegistry;
-use IronFlow\Support\DependencyResolver;
-use IronFlow\Support\ServiceExposer;
-use IronFlow\Support\ConflictDetector;
-use IronFlow\Contracts\ExposableInterface;
+use IronFlow\Services\{ServiceRegistry, LazyLoader, DependencyResolver};
+use IronFlow\Events\ModuleEventDispatcher;
+use IronFlow\Exceptions\{ModuleException, ExceptionHandler};
+use IronFlow\Events\Events\{ModuleRegistered, ModuleBooting, ModuleBooted, ModuleFailed};
 
 /**
  * Anvil - Module Manager and Orchestrator
  *
- * Manages the complete lifecycle of IronFlow modules including discovery,
- * registration, dependency resolution, service exposure, and conflict detection.
+ * Manages module discovery, bootstrapping, service registration, and event dispatching.
  *
  * @author Aure Dulvresse
  * @package IronFlow/Core
- * @since 1.0.0
  */
 class Anvil
 {
-    /**
-     * @var ModuleRegistry
-     */
+    protected Application $app;
     protected ModuleRegistry $registry;
-
-    /**
-     * @var DependencyResolver
-     */
+    protected array $modules = [];
+    protected bool $booted = false;
+    protected ModuleDiscovery $discovery;
+    protected ManifestCache $cache;
+    protected ServiceRegistry $serviceRegistry;
+    protected LazyLoader $lazyLoader;
     protected DependencyResolver $dependencyResolver;
-
-    /**
-     * @var ServiceExposer
-     */
-    protected ServiceExposer $serviceExposer;
-
-    /**
-     * @var ConflictDetector
-     */
     protected ConflictDetector $conflictDetector;
+    protected ModuleEventDispatcher $eventDispatcher;
+    protected ExceptionHandler $exceptionHandler;
 
-    /**
-     * @var Collection Registered modules
-     */
-    protected Collection $modules;
-
-    /**
-     * @var bool Whether modules have been discovered
-     */
-    protected bool $discovered = false;
-
-    /**
-     * Create a new Anvil instance.
-     *
-     * @param ModuleRegistry $registry
-     * @param DependencyResolver $dependencyResolver
-     * @param ServiceExposer $serviceExposer
-     * @param ConflictDetector $conflictDetector
-     */
-    public function __construct(
-        ModuleRegistry $registry,
-        DependencyResolver $dependencyResolver,
-        ServiceExposer $serviceExposer,
-        ConflictDetector $conflictDetector
-    ) {
-        $this->registry = $registry;
-        $this->dependencyResolver = $dependencyResolver;
-        $this->serviceExposer = $serviceExposer;
-        $this->conflictDetector = $conflictDetector;
-        $this->modules = collect();
+    public function __construct(Application $app)
+    {
+        $this->app = $app;
+        $this->discovery = new ModuleDiscovery($app);
+        $this->registry = new ModuleRegistry();
+        $this->cache = new ManifestCache($app);
+        $this->serviceRegistry = new ServiceRegistry($app);
+        $this->lazyLoader = new LazyLoader($app);
+        $this->dependencyResolver = new DependencyResolver();
+        $this->conflictDetector = new ConflictDetector($app);
+        $this->eventDispatcher = new ModuleEventDispatcher($app);
+        $this->exceptionHandler = new ExceptionHandler($app);
     }
 
     /**
-     * Discover and register all modules.
-     *
-     * @return void
-     * @throws ModuleException
+     * Bootstrap IronFlow - discover and boot modules
+     */
+    public function bootstrap(): void
+    {
+        if ($this->booted) {
+            return;
+        }
+
+        try {
+            // Discover modules
+            if (config('ironflow.auto_discover', true)) {
+                $this->discover();
+            }
+
+            // Boot all modules
+            $this->bootModules();
+
+            $this->booted = true;
+        } catch (\Throwable $e) {
+            $this->exceptionHandler->handleBootstrapException($e);
+            throw $e;
+        }
+    }
+
+    /**
+     * Discover all modules
      */
     public function discover(): void
     {
-        if ($this->discovered) {
+        // Try to load from cache
+        if (config('ironflow.cache.enabled') && $this->cache->exists()) {
+            $this->loadFromCache();
             return;
         }
 
-        $modulePath = config('ironflow.path');
+        // Scan and register modules
+        $discoveredModules = $this->discovery->scan();
 
-        if (!File::isDirectory($modulePath)) {
-            Log::warning("[IronFlow] Module path does not exist: {$modulePath}");
-            $this->discovered = true;
+        foreach ($discoveredModules as $moduleName => $moduleClass) {
+            $this->registerModule($moduleName, $moduleClass);
+        }
+
+        // Cache manifest if enabled
+        if (config('ironflow.cache.enabled')) {
+            $this->cacheManifest();
+        }
+    }
+
+    /**
+     * Register a module
+     */
+    public function registerModule(string $moduleName, string $moduleClass): void
+    {
+        if (isset($this->modules[$moduleName])) {
+            Log::warning("Module {$moduleName} is already registered");
             return;
         }
 
-        $moduleDirs = File::directories($modulePath);
+        try {
+            /** @var BaseModule $module */
+            $module = new $moduleClass();
+            $module->setState(ModuleState::REGISTERED);
 
-        foreach ($moduleDirs as $dir) {
-            $this->registerModuleFromPath($dir);
+            // Call register method
+            $module->register();
+
+            $this->registry->register($moduleName, $module);    
+            $this->modules[$moduleName] = $module;
+
+            // Dispatch event
+            $this->eventDispatcher->dispatch(new ModuleRegistered($module));
+
+            Log::info("Module {$moduleName} registered successfully");
+        } catch (\Throwable $e) {
+            $this->exceptionHandler->handleModuleException($moduleName, $e, 'registration');
+            throw new ModuleException("Failed to register module {$moduleName}: {$e->getMessage()}", 0, $e);
         }
-
-        $this->discovered = true;
     }
 
     /**
-     * Register a module from a path.
-     *
-     * @param string $path
-     * @return void
-     * @throws ModuleException
+     * Boot all modules
      */
-    protected function registerModuleFromPath(string $path): void
+    public function bootModules(): void
     {
-        $moduleName = basename($path);
-        $moduleClass = $this->findModuleClass($path, $moduleName);
-
-        if (!$moduleClass) {
-            Log::warning("[IronFlow] Module class not found for: {$moduleName}");
-            return;
-        }
-
-        if (!class_exists($moduleClass)) {
-            Log::warning("[IronFlow] Module class does not exist: {$moduleClass}");
-            return;
-        }
-
-        $this->registerModule($moduleClass);
-    }
-
-    /**
-     * Find module class.
-     *
-     * @param string $path
-     * @param string $moduleName
-     * @return string|null
-     */
-    protected function findModuleClass(string $path, string $moduleName): ?string
-    {
-        $namespace = config('ironflow.namespace', 'Modules');
-        $possibleClasses = [
-            "{$namespace}\\{$moduleName}\\{$moduleName}Module",
-            "{$namespace}\\{$moduleName}\\Providers\\{$moduleName}ServiceProvider",
-        ];
-
-        foreach ($possibleClasses as $class) {
-            if (class_exists($class)) {
-                return $class;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Register a module.
-     *
-     * @param string|BaseModule $module
-     * @return void
-     * @throws ModuleException
-     */
-    public function registerModule(string|BaseModule $module): void
-    {
-        if (is_string($module)) {
-            $module = app($module);
-        }
-
-        if (!$module instanceof BaseModule) {
-            throw new ModuleException("Module must extend BaseModule");
-        }
-
-        $metadata = $module->getMetadata();
-        $moduleName = $metadata->getName();
-
-        // Check if already registered
-        if ($this->hasModule($moduleName)) {
-            throw new ModuleException("Module {$moduleName} is already registered");
-        }
-
-        // Call register() method to transition state properly
-        $module->register();
-
-        // Register in registry
-        $this->registry->register($moduleName, $module);
-        $this->modules->put($moduleName, $module);
-
-        Log::info("[IronFlow] Module registered: {$moduleName}");
-    }
-
-    /**
-     * Boot all modules in dependency order.
-     *
-     * @return void
-     * @throws DependencyException
-     */
-    public function bootAll(): void
-    {
-        // Resolve dependencies
+        // Resolve dependency order
         $bootOrder = $this->dependencyResolver->resolve($this->modules);
 
-        // Detect conflicts before booting
-        if (config('ironflow.conflict_detection.enabled', true)) {
-            $conflicts = $this->conflictDetector->detect($this->modules);
-            if (!empty($conflicts)) {
-                Log::warning("[IronFlow] Conflicts detected", $conflicts);
-            }
-        }
+        // Detect conflicts
+        $conflicts = $this->conflictDetector->detect($this->modules);
+        $this->conflictDetector->handle($conflicts);
 
-        // Boot modules in order
+        // Preload modules
         foreach ($bootOrder as $moduleName) {
-            $module = $this->modules->get($moduleName);
-
-            if (!$module->getMetadata()->isEnabled()) {
-                continue;
+            $module = $this->modules[$moduleName];
+            if ($module->getState() === ModuleState::REGISTERED) {
+                $module->setState(ModuleState::PRELOADED);
             }
+        }
 
-            try {
-                $module->boot();
-
-                // Expose services if module implements ExposableInterface
-                if ($module instanceof ExposableInterface) {
-                    $this->serviceExposer->expose($moduleName, $module->expose());
-                }
-            } catch (\Throwable $e) {
-                Log::error("[IronFlow] Failed to boot module: {$moduleName}", [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-                throw $e;
-            }
+        // Boot modules in dependency order
+        foreach ($bootOrder as $moduleName) {
+            $this->bootModule($moduleName);
         }
     }
 
     /**
-     * Get a registered module.
-     *
-     * @param string $name
-     * @return BaseModule|null
+     * Boot a single module
      */
-    public function getModule(string $name): ?BaseModule
+    public function bootModule(string $moduleName): void
     {
-        return $this->modules->get($name);
+        if (!isset($this->modules[$moduleName])) {
+            throw new ModuleException("Module {$moduleName} not found");
+        }
+
+        $module = $this->modules[$moduleName];
+
+        // Skip if already booted or failed
+        if ($module->isBooted() || $module->getState() === ModuleState::FAILED) {
+            return;
+        }
+
+        try {
+            // Dispatch booting event
+            $this->eventDispatcher->dispatch(new ModuleBooting($module));
+
+            $module->setState(ModuleState::BOOTING);
+
+            // Boot the module
+            $module->bootModule();
+
+            // Register services
+            $this->registerModuleServices($module);
+
+            // Lazy load components
+            $this->lazyLoader->load($module);
+
+            $module->setState(ModuleState::BOOTED);
+
+            // Dispatch booted event
+            $this->eventDispatcher->dispatch(new ModuleBooted($module));
+
+            Log::info("Module {$moduleName} booted successfully");
+        } catch (\Throwable $e) {
+            $module->markAsFailed($e);
+
+            // Dispatch failed event
+            $this->eventDispatcher->dispatch(new ModuleFailed($module, $e));
+
+            $this->exceptionHandler->handleModuleException($moduleName, $e, 'boot');
+
+            if (config('ironflow.exceptions.rollback_on_boot_failure', true)) {
+                $this->rollbackModule($moduleName);
+            }
+
+            throw new ModuleException("Failed to boot module {$moduleName}: {$e->getMessage()}", 0, $e);
+        }
     }
 
     /**
-     * Check if module exists.
-     *
-     * @param string $name
-     * @return bool
+     * Register module services with the registry
      */
-    public function hasModule(string $name): bool
+    protected function registerModuleServices(BaseModule $module): void
     {
-        return $this->modules->has($name);
+        $publicServices = $module->expose();
+        $linkedServices = $module->exposeLinked();
+
+        $this->serviceRegistry->registerPublicServices($module->getName(), $publicServices);
+        $this->serviceRegistry->registerLinkedServices($module->getName(), $linkedServices);
     }
 
     /**
-     * Get all modules.
-     *
-     * @return Collection
+     * Rollback module after failed boot
      */
-    public function getModules(): Collection
+    protected function rollbackModule(string $moduleName): void
+    {
+        try {
+            $module = $this->modules[$moduleName];
+
+            // Remove registered services
+            $this->serviceRegistry->unregisterModule($moduleName);
+
+            // Mark as disabled
+            $module->setState(ModuleState::DISABLED);
+
+            Log::info("Module {$moduleName} rolled back successfully");
+        } catch (\Throwable $e) {
+            Log::error("Failed to rollback module {$moduleName}: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Get a service from the registry
+     */
+    public function getService(string $serviceName, ?string $moduleContext = null): mixed
+    {
+        return $this->serviceRegistry->resolve($serviceName, $moduleContext);
+    }
+
+    /**
+     * Get all registered modules
+     */
+    public function getModules(): array
     {
         return $this->modules;
     }
 
     /**
-     * Get enabled modules.
-     *
-     * @return Collection
+     * Get a specific module
      */
-    public function getEnabledModules(): Collection
+    public function getModule(string $name): ?BaseModule
     {
-        return $this->modules->filter(function (BaseModule $module) {
-            return $module->getMetadata()->isEnabled();
-        });
+        return $this->modules[$name] ?? null;
     }
 
     /**
-     * Get disabled modules.
-     *
-     * @return Collection
+     * Check if a module exists
      */
-    public function getDisabledModules(): Collection
+    public function hasModule(string $name): bool
     {
-        return $this->modules->filter(function (BaseModule $module) {
-            return !$module->getMetadata()->isEnabled();
-        });
+        return isset($this->modules[$name]);
     }
 
     /**
-     * Enable a module.
-     *
-     * @param string $name
-     * @return void
-     * @throws ModuleException
+     * Cache the module manifest
      */
-    public function enable(string $name): void
+    public function cacheManifest(): void
     {
-        $module = $this->getModule($name);
+        $manifest = [];
 
-        if (!$module) {
-            throw new ModuleException("Module {$name} not found");
+        foreach ($this->modules as $name => $module) {
+            $metadata = $module->getMetadata();
+            $manifest[$name] = [
+                'class' => get_class($module),
+                'metadata' => $metadata->toArray(),
+                'state' => $module->getState()->value,
+                'services' => [
+                    'public' => array_keys($module->expose()),
+                    'linked' => array_keys($module->exposeLinked()),
+                ],
+            ];
         }
 
-        $module->enable();
-        $this->clearCache();
+        $this->cache->save($manifest);
+        Log::info("Module manifest cached successfully");
     }
 
     /**
-     * Disable a module.
-     *
-     * @param string $name
-     * @return void
-     * @throws ModuleException
+     * Load modules from cache
      */
-    public function disable(string $name): void
+    protected function loadFromCache(): void
     {
-        $module = $this->getModule($name);
+        $manifest = $this->cache->load();
 
-        if (!$module) {
-            throw new ModuleException("Module {$name} not found");
+        foreach ($manifest as $name => $data) {
+            $this->registerModule($name, $data['class']);
         }
 
-        $module->disable();
-        $this->clearCache();
+        Log::info("Loaded " . count($manifest) . " modules from cache");
     }
 
     /**
-     * Install a module.
-     *
-     * @param string $name
-     * @return void
-     * @throws ModuleException
-     */
-    public function install(string $name): void
-    {
-        $module = $this->getModule($name);
-
-        if (!$module) {
-            throw new ModuleException("Module {$name} not found");
-        }
-
-        $module->install();
-    }
-
-    /**
-     * Uninstall a module.
-     *
-     * @param string $name
-     * @return void
-     * @throws ModuleException
-     */
-    public function uninstall(string $name): void
-    {
-        $module = $this->getModule($name);
-
-        if (!$module) {
-            throw new ModuleException("Module {$name} not found");
-        }
-
-        $module->uninstall();
-    }
-
-    /**
-     * Get exposed service from a module.
-     *
-     * @param string $moduleName
-     * @param string $serviceName
-     * @param string|null $requesterModule
-     * @return mixed
-     * @throws ModuleException
-     */
-    public function getService(string $moduleName, string $serviceName, ?string $requesterModule = null): mixed
-    {
-        return $this->serviceExposer->getService($moduleName, $serviceName, $requesterModule);
-    }
-
-    /**
-     * Check if module provides a service.
-     *
-     * @param string $moduleName
-     * @param string $serviceName
-     * @return bool
-     */
-    public function hasService(string $moduleName, string $serviceName): bool
-    {
-        return $this->serviceExposer->hasService($moduleName, $serviceName);
-    }
-
-    /**
-     * Get module dependencies.
-     *
-     * @param string $name
-     * @return array
-     */
-    public function getDependencies(string $name): array
-    {
-        $module = $this->getModule($name);
-        return $module ? $module->getMetadata()->getDependencies() : [];
-    }
-
-    /**
-     * Get modules that depend on given module.
-     *
-     * @param string $name
-     * @return Collection
-     */
-    public function getDependents(string $name): Collection
-    {
-        return $this->modules->filter(function (BaseModule $module) use ($name) {
-            return $module->getMetadata()->hasDependency($name);
-        });
-    }
-
-    /**
-     * Clear module cache.
-     *
-     * @return void
+     * Clear the module cache
      */
     public function clearCache(): void
     {
-        if (config('ironflow.cache.enabled', true)) {
-            Cache::forget(config('ironflow.cache.key', 'ironflow.modules'));
-        }
+        $this->cache->clear();
+        Log::info("Module cache cleared");
     }
 
     /**
-     * Get module statistics.
-     *
-     * @return array
+     * Get dependency tree
      */
-    public function getStatistics(): array
+    public function getDependencyTree(): array
     {
-        return [
-            'total' => $this->modules->count(),
-            'enabled' => $this->getEnabledModules()->count(),
-            'disabled' => $this->getDisabledModules()->count(),
-            'failed' => $this->modules->filter(fn($m) => $m->getState()->isFailed())->count(),
-            'booted' => $this->modules->filter(fn($m) => $m->getState()->isBooted())->count(),
-        ];
+        return $this->dependencyResolver->getTree($this->modules);
+    }
+
+    /**
+     * Resolve a service binding
+     */
+    public function resolveService(string $abstract, callable $concrete): void
+    {
+        $this->app->bind($abstract, $concrete);
+    }
+
+    /**
+     * Get event dispatcher
+     */
+    public function events(): ModuleEventDispatcher
+    {
+        return $this->eventDispatcher;
     }
 }
