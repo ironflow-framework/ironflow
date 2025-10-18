@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace IronFlow\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 use IronFlow\Facades\Anvil;
+use IronFlow\Publishing\ModulePublisher;
+use IronFlow\Contracts\ExportableInterface;
+use IronFlow\Core\BaseModule;
 
 /**
  * PublishModuleCommand
@@ -16,154 +17,86 @@ use IronFlow\Facades\Anvil;
  */
 class PublishModuleCommand extends Command
 {
-    protected $signature = 'ironflow:module:publish {name : The name of the module}
-                            {--output= : Output directory for the package}
-                            {--dry-run : Preview what would be exported}';
+    protected $signature = 'ironflow:publish {module : The module name to publish}
+                            {--init : Initialize git repository}
+                            {--tag : Create initial git tag}
+                            {--push : Push to remote repository}';
+    
+    protected $description = 'Prepare and publish a module as a standalone package';
 
-    protected $description = 'Export an IronFlow module for Packagist publication';
-
-    public function handle(): int
+    public function handle(ModulePublisher $publisher): int
     {
-        $name = $this->argument('name');
-        $module = Anvil::getModule($name);
+        $moduleName = $this->argument('module');
+        $module = Anvil::getModule($moduleName);
 
         if (!$module) {
-            $this->output->error("Module {$name} not found!");
-            return 1;
+            $this->error("Module '{$moduleName}' not found");
+            return self::FAILURE;
         }
 
-        if (!$module instanceof \IronFlow\Contracts\ExportableInterface) {
-            $this->output->error("Module {$name} does not implement ExportableInterface!");
-            return 1;
+        if (!$module instanceof ExportableInterface) {
+            $this->error("Module '{$moduleName}' must implement ExportableInterface");
+            $this->info("Add 'implements ExportableInterface' to your module class");
+            return self::FAILURE;
         }
 
-        $outputPath = $this->option('output')
-            ?? config('ironflow.export.output_path', storage_path('ironflow/exports'))
-            . '/' . Str::slug($name);
-
-        $this->output->info("Exporting module: {$name}");
+        $this->info("Publishing module: {$moduleName}");
+        $this->newLine();
 
         try {
-            $exportData = $module->export();
+            $packagePath = $publisher->publish($module);
+            
+            $this->info("✓ Module files copied");
+            $this->info("✓ composer.json generated");
+            $this->info("✓ README.md generated");
+            $this->info("✓ LICENSE generated");
+            $this->info("✓ Tests skeleton created");
+            
+            $this->newLine();
+            $this->info("Package created at: {$packagePath}");
 
-            if ($this->option('dry-run')) {
-                $this->output->info("Dry run - would export the following:");
-                $this->output->table(['Type', 'Items'], [
-                    ['Files', count($exportData['files'] ?? [])],
-                    ['Assets', count($exportData['assets'] ?? [])],
-                    ['Config', count($exportData['config'] ?? [])],
-                    ['Stubs', count($exportData['stubs'] ?? [])],
-                ]);
-                return 0;
+            // Initialize git repository
+            if ($this->option('init')) {
+                $this->initGitRepository($packagePath, $module);
             }
 
-            // Create output directory
-            File::makeDirectory($outputPath, 0755, true, true);
+            $this->newLine();
+            $this->info("Next steps:");
+            $this->line("  1. Review generated files in: {$packagePath}");
+            $this->line("  2. Run: cd {$packagePath} && composer install");
+            $this->line("  3. Run tests: composer test");
+            $this->line("  4. Create repository on GitHub");
+            $this->line("  5. Push: git remote add origin <your-repo-url> && git push -u origin main");
+            $this->line("  6. Submit to Packagist: https://packagist.org/packages/submit");
 
-            // Generate composer.json
-            $this->generateComposerJson($module, $outputPath);
-
-            // Copy files
-            $this->copyFiles($exportData, $outputPath);
-
-            // Generate README
-            $this->generatePackageReadme($module, $outputPath);
-
-            $this->output->info("Module exported successfully to: {$outputPath}");
-            $this->output->info("Package name: {$module->getPackageName()}");
-
-            return 0;
+            return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->output->error("Failed to export module: {$e->getMessage()}");
-            return 1;
+            $this->error("Publishing failed: {$e->getMessage()}");
+            return self::FAILURE;
         }
     }
 
-    protected function generateComposerJson($module, string $path): void
+    protected function initGitRepository(string $packagePath, BaseModule $module): void
     {
-        $metadata = $module->getMetadata();
-        $packageName = $module->getPackageName();
+        $this->info("Initializing git repository...");
 
-        $composer = [
-            'name' => $packageName,
-            'description' => $module->getPackageDescription(),
-            'type' => 'library',
-            'license' => 'MIT',
-            'authors' => $metadata->getAuthors(),
-            'require' => [
-                'ironflow/ironflow' => '^3.0'
-            ],
-            'autoload' => $module->getPackageAutoload(),
-            'extra' => [
-                'laravel' => [
-                    'providers' => [
-                        str_replace('/', '\\', ucfirst($packageName)) . '\\' . $metadata->getName() . 'Module'
-                    ]
-                ]
-            ]
-        ];
+        chdir($packagePath);
 
-        File::put($path . '/composer.json', json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    }
+        exec('git init');
+        exec('git add .');
+        exec('git commit -m "Initial commit"');
+        
+        $this->info("✓ Git repository initialized");
 
-    protected function copyFiles(array $exportData, string $outputPath): void
-    {
-        foreach (['files', 'assets', 'config', 'stubs'] as $type) {
-            if (empty($exportData[$type])) {
-                continue;
-            }
-
-            foreach ($exportData[$type] as $source) {
-                if (!File::exists($source)) {
-                    continue;
-                }
-
-                $destination = $outputPath . '/src/' . basename($source);
-
-                if (File::isDirectory($source)) {
-                    File::copyDirectory($source, $destination);
-                } else {
-                    File::copy($source, $destination);
-                }
-            }
+        if ($this->option('tag')) {
+            $version = $module->getMetadata()->version;
+            exec("git tag v{$version}");
+            $this->info("✓ Created tag v{$version}");
         }
-    }
 
-    protected function generatePackageReadme($module, string $path): void
-    {
-        $metadata = $module->getMetadata();
-        $name = $metadata->getName();
-        $description = $metadata->getDescription();
-
-        $readme = <<<MD
-# {$name}
-
-{$description}
-
-## Installation
-
-```bash
-composer require {$module->getPackageName()}
-```
-
-## Usage
-
-This module is automatically registered via Laravel's package discovery.
-
-## Configuration
-
-Publish the configuration file:
-
-```bash
-php artisan vendor:publish --tag={$name}-config
-```
-
-## License
-
-MIT
-
-MD;
-
-        File::put($path . '/README.md', $readme);
+        if ($this->option('push') && $this->option('tag')) {
+            exec('git push origin main --tags');
+            $this->info("✓ Pushed to remote");
+        }
     }
 }
