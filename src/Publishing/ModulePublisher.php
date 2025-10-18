@@ -7,7 +7,7 @@ namespace IronFlow\Publishing;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use IronFlow\Core\BaseModule;
-use IronFlow\Interfaces\ExportableInterface;
+use IronFlow\Contracts\ExportableInterface;
 use IronFlow\Exceptions\PublishException;
 
 class ModulePublisher
@@ -31,6 +31,9 @@ class ModulePublisher
                 "Module {$module->getName()} must implement ExportableInterface to be publishable"
             );
         }
+
+        // Validate pré-publication
+        $this->validateModule($module);
 
         // Call before hook
         $module->beforePublish();
@@ -65,13 +68,31 @@ class ModulePublisher
         return $packagePath;
     }
 
+    protected function validateModule(BaseModule $module): void
+    {
+        if (!$module instanceof ExportableInterface) {
+            throw new PublishException("Module must implement ExportableInterface");
+        }
+
+        $packageName = $module->getPackageName();
+        if (!preg_match('/^[a-z0-9\-]+\/[a-z0-9\-]+$/', $packageName)) {
+            throw new PublishException("Invalid package name: {$packageName}");
+        }
+
+        $license = $module->getPackageLicense();
+        $validLicenses = ['MIT', 'GPL-3.0', 'Apache-2.0', 'BSD-3-Clause'];
+        if (!in_array($license, $validLicenses)) {
+            throw new PublishException("Unsupported license: {$license}");
+        }
+    }
+
     /**
      * Create package directory structure
      */
     protected function createPackageStructure(string $packageName): string
     {
         [$vendor, $package] = explode('/', $packageName);
-        
+
         $packagePath = $this->publishPath . '/' . $package;
 
         if (File::exists($packagePath)) {
@@ -146,7 +167,7 @@ class ModulePublisher
 
         foreach (File::allFiles($source) as $file) {
             $relativePath = str_replace($source . '/', '', $file->getPathname());
-            
+
             // Check if file should be excluded
             $shouldExclude = false;
             foreach ($excludedPaths as $excludedPath) {
@@ -246,6 +267,15 @@ class ModulePublisher
         $packageName = $module->getPackageName();
         $description = $module->getPackageDescription();
 
+        // Préparer les variables complexes avant le heredoc
+        $namespace = $module->getNamespace();
+        $usageLine = "use {$namespace}\\Services\\{$moduleName}Service;";
+
+        $authors = $module->getPackageAuthors();
+        $authorName = $authors[0]['name'] ?? 'Author Name';
+        $homepage = $module->getPackageHomepage() ?? '#';
+        $license = $module->getPackageLicense();
+
         $readme = <<<MD
 # {$moduleName}
 
@@ -268,7 +298,7 @@ php artisan vendor:publish --tag={$moduleName}-config
 ## Usage
 
 ```php
-use {$module->getNamespace()}\\Services\\{$moduleName}Service;
+{$usageLine}
 
 // Your usage example here
 ```
@@ -305,12 +335,12 @@ Please review our [security policy](../../security/policy) on how to report secu
 
 ## Credits
 
-- [{$module->getPackageAuthors()[0]['name'] ?? 'Author Name'}]({$module->getPackageHomepage() ?? '#'})
+- [{$authorName}]({$homepage})
 - [All Contributors](../../contributors)
 
 ## License
 
-The {$module->getPackageLicense()} License. Please see [License File](LICENSE.md) for more information.
+The {$license} License. Please see [License File](LICENSE.md) for more information.
 MD;
 
         File::put($packagePath . '/README.md', $readme);
