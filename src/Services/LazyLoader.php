@@ -3,14 +3,16 @@
 namespace IronFlow\Services;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Log;
 use IronFlow\Core\BaseModule;
-use IronFlow\Contracts\{RoutableInterface, ViewableInterface, ConfigurableInterface, ExposableInterface};
+use IronFlow\Contracts\{ExposableInterface, RoutableInterface, ViewableInterface};
 
 class LazyLoader
 {
     protected Application $app;
     protected array $eagerComponents;
     protected array $lazyComponents;
+    protected array $loadedServices = [];
 
     public function __construct(Application $app)
     {
@@ -34,19 +36,37 @@ class LazyLoader
             $this->loadComponent($module, $component);
         }
 
-        // Lazy components will be loaded on-demand
-        // This is handled by Laravel's service container and deferred providers
+        // Register lazy components pour chargement à la demande
+        $this->registerLazyComponents($module);
     }
 
     /**
-     * Load all components immediately
+     * Register lazy components
      */
-    protected function loadAll(BaseModule $module): void
+    protected function registerLazyComponents(BaseModule $module): void
     {
-        $allComponents = array_merge($this->eagerComponents, $this->lazyComponents);
+        if (!$module instanceof ExposableInterface) {
+            return;
+        }
 
-        foreach ($allComponents as $component) {
-            $this->loadComponent($module, $component);
+        $services = $module->expose();
+
+        foreach ($services as $serviceName => $serviceClass) {
+            $fullServiceName = strtolower($module->getName()) . '.' . $serviceName;
+
+            // Skip si déjà chargé
+            if (isset($this->loadedServices[$fullServiceName])) {
+                continue;
+            }
+
+            // Enregistrer comme singleton lazy
+            $this->app->singleton($serviceClass, function ($app) use ($serviceClass, $fullServiceName) {
+                Log::debug("Lazy loading service: {$fullServiceName}");
+
+                $this->loadedServices[$fullServiceName] = true;
+
+                return $app->make($serviceClass);
+            });
         }
     }
 
@@ -104,7 +124,7 @@ class LazyLoader
      */
     protected function loadConfig(BaseModule $module): void
     {
-        if (!$module instanceof ConfigurableInterface) {
+        if (!$module instanceof \IronFlow\Contracts\ConfigurableInterface) {
             return;
         }
 
@@ -117,7 +137,7 @@ class LazyLoader
     }
 
     /**
-     * Load module services
+     * Load services (implémentation réelle lazy)
      */
     protected function loadServices(BaseModule $module): void
     {
@@ -128,38 +148,25 @@ class LazyLoader
         $services = $module->expose();
 
         foreach ($services as $serviceName => $serviceClass) {
-            // Save as lazy proxy
-            $this->app->bindIf(
-                $serviceClass,
-                fn($app, $serviceClass) => $app->make($serviceClass)
-            );
+            $fullName = strtolower($module->getName()) . '.' . $serviceName;
+
+            // Enregistrer comme lazy avec proxy
+            $this->app->bindIf($fullName, function ($app) use ($serviceClass, $fullName) {
+                Log::debug("Lazy instantiating service: {$fullName}");
+                return $app->make($serviceClass);
+            });
         }
     }
 
     /**
-     * Load module events (placeholder for lazy loading)
+     * Load all components immediately
      */
-    protected function loadEvents(BaseModule $module): void
+    protected function loadAll(BaseModule $module): void
     {
-        // Events are loaded via EventDispatcher
-        // Implement if module has EventsInterface
-    }
+        $allComponents = array_merge($this->eagerComponents, $this->lazyComponents);
 
-    /**
-     * Load module commands (placeholder for lazy loading)
-     */
-    protected function loadCommands(BaseModule $module): void
-    {
-        // Commands are loaded via Console\Kernel
-        // Implement if module has CommandsInterface
-    }
-
-    /**
-     * Load module middleware (placeholder for lazy loading)
-     */
-    protected function loadMiddleware(BaseModule $module): void
-    {
-        // Middleware is loaded via Http\Kernel
-        // Implement if module has MiddlewareInterface
+        foreach ($allComponents as $component) {
+            $this->loadComponent($module, $component);
+        }
     }
 }

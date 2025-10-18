@@ -132,7 +132,7 @@ class Anvil
     }
 
     /**
-     * Boot all modules
+     * Boot all modules with transaction safety
      */
     public function bootModules(): void
     {
@@ -151,23 +151,44 @@ class Anvil
             }
         }
 
-        // Boot modules in dependency order
-        DB::beginTransaction();
+        // Boot modules in dependency order avec transaction
         $bootedModules = [];
 
         try {
             foreach ($bootOrder as $moduleName) {
+                Log::channel('ironflow')->info('Starting module boot', [
+                    'module' => $moduleName,
+                    'memory_before' => memory_get_usage(true),
+                ]);
+
+                $start = microtime(true);
+
                 $this->bootModule($moduleName);
                 $bootedModules[] = $moduleName;
+
+                $duration = round((microtime(true) - $start) * 1000, 2);
+
+                Log::channel('ironflow')->info('Module booted successfully', [
+                    'module' => $moduleName,
+                    'duration_ms' => $duration,
+                    'memory_after' => memory_get_usage(true),
+                ]);
             }
-
-            DB::commit();
         } catch (\Throwable $e) {
-            DB::rollBack();
+            Log::channel('ironflow')->error('Module boot sequence failed', [
+                'failed_modules' => array_diff($bootOrder, $bootedModules),
+                'error' => $e->getMessage(),
+            ]);
 
-            // Rollback modules bootés
-            foreach (array_reverse($bootedModules) as $moduleName) {
-                $this->rollbackModule($moduleName);
+            // Rollback bootés si configuré
+            if (config('ironflow.exceptions.rollback_on_boot_failure', true)) {
+                foreach (array_reverse($bootedModules) as $moduleName) {
+                    try {
+                        $this->rollbackModule($moduleName);
+                    } catch (\Throwable $rollbackError) {
+                        Log::error("Rollback failed for {$moduleName}: {$rollbackError->getMessage()}");
+                    }
+                }
             }
 
             throw $e;
@@ -180,7 +201,10 @@ class Anvil
     public function bootModule(string $moduleName): void
     {
         if (!isset($this->modules[$moduleName])) {
-            throw new ModuleException("Module {$moduleName} not found");
+            $available = implode(', ', array_keys($this->modules));
+            throw new ModuleException(
+                "Module '{$moduleName}' not found. Available modules: {$available}"
+            );
         }
 
         $module = $this->modules[$moduleName];
@@ -210,7 +234,6 @@ class Anvil
             // Dispatch booted event
             $this->eventDispatcher->dispatch(new ModuleBooted($module));
 
-            Log::info("Module {$moduleName} booted successfully");
         } catch (\Throwable $e) {
             $module->markAsFailed($e);
 
@@ -219,11 +242,12 @@ class Anvil
 
             $this->exceptionHandler->handleModuleException($moduleName, $e, 'boot');
 
-            if (config('ironflow.exceptions.rollback_on_boot_failure', true)) {
-                $this->rollbackModule($moduleName);
-            }
-
-            throw new ModuleException("Failed to boot module {$moduleName}: {$e->getMessage()}", 0, $e);
+            throw new ModuleException(
+                "Failed to boot module '{$moduleName}': {$e->getMessage()}\n" .
+                "File: {$e->getFile()}:{$e->getLine()}",
+                0,
+                $e
+            );
         }
     }
 

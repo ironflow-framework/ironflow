@@ -32,7 +32,7 @@ class ModulePublisher
             );
         }
 
-        // Validate pré-publication
+        // Validation pré-publication
         $this->validateModule($module);
 
         // Call before hook
@@ -62,28 +62,111 @@ class ModulePublisher
         // Generate tests skeleton
         $this->generateTestsSkeleton($module, $packagePath);
 
+        // Generate CHANGELOG
+        $this->generateChangelog($module, $packagePath);
+
         // Call after hook
         $module->afterPublish();
 
         return $packagePath;
     }
 
-    protected function validateModule(BaseModule $module): void
+    /**
+     * Validate module before publishing
+     */
+    protected function validateModule(ExportableInterface $module): void
     {
-        if (!$module instanceof ExportableInterface) {
-            throw new PublishException("Module must implement ExportableInterface");
-        }
+        $errors = [];
 
+        // Validate package name
         $packageName = $module->getPackageName();
         if (!preg_match('/^[a-z0-9\-]+\/[a-z0-9\-]+$/', $packageName)) {
-            throw new PublishException("Invalid package name: {$packageName}");
+            $errors[] = "Invalid package name: {$packageName}. Must be 'vendor/package-name' format.";
         }
 
-        $license = $module->getPackageLicense();
-        $validLicenses = ['MIT', 'GPL-3.0', 'Apache-2.0', 'BSD-3-Clause'];
-        if (!in_array($license, $validLicenses)) {
-            throw new PublishException("Unsupported license: {$license}");
+        // Validate version
+        $metadata = $module->getMetadata();
+        if (!preg_match('/^\d+\.\d+\.\d+/', $metadata->version)) {
+            $errors[] = "Invalid version: {$metadata->version}. Must follow semantic versioning.";
         }
+
+        // Validate license
+        $license = $module->getPackageLicense();
+        $validLicenses = ['MIT', 'GPL-3.0', 'GPL-3.0-or-later', 'Apache-2.0', 'BSD-3-Clause', 'BSD-2-Clause', 'LGPL-3.0'];
+        if (!in_array($license, $validLicenses)) {
+            $errors[] = "Unsupported license: {$license}. Supported: " . implode(', ', $validLicenses);
+        }
+
+        // Validate authors
+        $authors = $module->getPackageAuthors();
+        if (empty($authors)) {
+            $errors[] = "At least one author is required.";
+        } else {
+            foreach ($authors as $index => $author) {
+                if (empty($author['name'])) {
+                    $errors[] = "Author #{$index} must have a name.";
+                }
+                if (!empty($author['email']) && !filter_var($author['email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors[] = "Author #{$index} has invalid email: {$author['email']}";
+                }
+            }
+        }
+
+        // Validate description
+        $description = $module->getPackageDescription();
+        if (empty($description)) {
+            $errors[] = "Package description is required.";
+        } elseif (strlen($description) < 10) {
+            $errors[] = "Package description is too short (minimum 10 characters).";
+        }
+
+        if (!empty($errors)) {
+            throw new PublishException(
+                "Module validation failed:\n" . implode("\n", array_map(fn($e) => "  - {$e}", $errors))
+            );
+        }
+    }
+
+    /**
+     * Generate CHANGELOG.md
+     */
+    protected function generateChangelog(ExportableInterface $module, string $packagePath): void
+    {
+        $metadata = $module->getMetadata();
+        $version = $metadata->version;
+        $date = date('Y-m-d');
+
+        $changelog = <<<MD
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [{$version}] - {$date}
+
+### Added
+- Initial release
+- Core functionality
+
+### Changed
+- N/A
+
+### Deprecated
+- N/A
+
+### Removed
+- N/A
+
+### Fixed
+- N/A
+
+### Security
+- N/A
+MD;
+
+        File::put($packagePath . '/CHANGELOG.md', $changelog);
     }
 
     /**

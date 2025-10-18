@@ -14,6 +14,7 @@ class ServiceRegistry
     protected array $publicServices = [];
     protected array $linkedServices = [];
     protected array $serviceInstances = [];
+    protected array $serviceInterfaces = [];
 
     public function __construct(Application $app)
     {
@@ -25,22 +26,50 @@ class ServiceRegistry
      */
     public function registerPublicServices(string $moduleName, array $services): void
     {
-        foreach ($services as $serviceName => $serviceClass) {
+        foreach ($services as $serviceName => $config) {
             $fullName = $this->buildServiceName($moduleName, $serviceName);
 
             if (isset($this->publicServices[$fullName])) {
                 $this->handleConflict($fullName, $moduleName);
             }
 
+            // Support array config avec interface
+            if (is_array($config)) {
+                $serviceClass = $config['class'];
+                $interface = $config['interface'] ?? null;
+            } else {
+                $serviceClass = $config;
+                $interface = null;
+            }
+
             $this->publicServices[$fullName] = [
                 'module' => $moduleName,
                 'class' => $serviceClass,
+                'interface' => $interface,
                 'registered_at' => now(),
             ];
 
-            // Bind to Laravel container
-            $this->app->singleton($fullName, function ($app) use ($serviceClass) {
-                return $app->make($serviceClass);
+            // Bind to Laravel container avec résolution automatique des dépendances
+            $this->app->singleton($fullName, function ($app) use ($serviceClass, $interface, $fullName) {
+                try {
+                    // Utiliser make() qui résout automatiquement les dépendances
+                    $instance = $app->make($serviceClass);
+
+                    // Vérifier l'interface si spécifiée
+                    if ($interface && !($instance instanceof $interface)) {
+                        throw new \RuntimeException(
+                            "Service {$fullName} must implement {$interface}"
+                        );
+                    }
+
+                    return $instance;
+                } catch (\Throwable $e) {
+                    Log::error("Failed to instantiate service {$fullName}", [
+                        'class' => $serviceClass,
+                        'error' => $e->getMessage(),
+                    ]);
+                    throw $e;
+                }
             });
 
             Log::debug("Public service {$fullName} registered from module {$moduleName}");
@@ -48,6 +77,97 @@ class ServiceRegistry
     }
 
     /**
+     * Resolve a service avec meilleure gestion d'erreurs
+     */
+    public function resolve(string $serviceName, ?string $moduleContext = null): mixed
+    {
+        // Try public services first
+        if (isset($this->publicServices[$serviceName])) {
+            return $this->getInstance($serviceName, $this->publicServices[$serviceName]);
+        }
+
+        // Try linked services
+        if (isset($this->linkedServices[$serviceName])) {
+            $service = $this->linkedServices[$serviceName];
+
+            // Check access permission
+            if ($moduleContext && !in_array($moduleContext, $service['allowed_modules'] ?? [])) {
+                throw new ServiceNotFoundException(
+                    "Service '{$serviceName}' is not accessible from module '{$moduleContext}'. " .
+                    "Allowed modules: " . implode(', ', $service['allowed_modules'] ?? [])
+                );
+            }
+
+            return $this->getInstance($serviceName, $service);
+        }
+
+        // Service not found - provide helpful message
+        $availableServices = array_merge(
+            array_keys($this->publicServices),
+            array_keys($this->linkedServices)
+        );
+
+        throw new ServiceNotFoundException(
+            "Service '{$serviceName}' not found. " .
+            "Available services: " . implode(', ', $availableServices) . ". " .
+            "Did you mean: " . $this->suggestService($serviceName, $availableServices)
+        );
+    }
+
+    /**
+     * Get or create service instance avec meilleure gestion
+     */
+    protected function getInstance(string $serviceName, array $serviceData): mixed
+    {
+        if (isset($this->serviceInstances[$serviceName])) {
+            return $this->serviceInstances[$serviceName];
+        }
+
+        try {
+            // Utiliser le container qui gère automatiquement les dépendances
+            $instance = $this->app->make($serviceName);
+
+            $this->serviceInstances[$serviceName] = $instance;
+
+            Log::debug("Service {$serviceName} instantiated successfully");
+
+            return $instance;
+        } catch (\Throwable $e) {
+            Log::error("Failed to resolve service {$serviceName}", [
+                'class' => $serviceData['class'],
+                'module' => $serviceData['module'],
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw new ServiceNotFoundException(
+                "Failed to instantiate service '{$serviceName}': {$e->getMessage()}",
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * Suggest similar service name
+     */
+    protected function suggestService(string $needle, array $haystack): ?string
+    {
+        $shortest = -1;
+        $closest = null;
+
+        foreach ($haystack as $service) {
+            $lev = levenshtein($needle, $service);
+            if ($lev <= $shortest || $shortest < 0) {
+                $closest = $service;
+                $shortest = $lev;
+            }
+        }
+
+        return $shortest <= 3 ? $closest : null;
+    }
+
+     /**
      * Register linked services (accessible only by specific modules)
      */
     public function registerLinkedServices(string $moduleName, array $services): void
@@ -64,55 +184,6 @@ class ServiceRegistry
 
             Log::debug("Linked service {$fullName} registered from module {$moduleName}");
         }
-    }
-
-    /**
-     * Resolve a service
-     */
-    public function resolve(string $serviceName, ?string $moduleContext = null): mixed
-    {
-        // Try public services first
-        if (isset($this->publicServices[$serviceName])) {
-            return $this->getInstance($serviceName, $this->publicServices[$serviceName]);
-        }
-
-        // Try linked services
-        if (isset($this->linkedServices[$serviceName])) {
-            $service = $this->linkedServices[$serviceName];
-
-            // Check access permission
-            if ($moduleContext && !in_array($moduleContext, $service['allowed_modules'] ?? [])) {
-                throw new ServiceNotFoundException(
-                    "Service {$serviceName} is not accessible from module {$moduleContext}"
-                );
-            }
-
-            return $this->getInstance($serviceName, $service);
-        }
-
-        throw new ServiceNotFoundException("Service {$serviceName} not found");
-    }
-
-    /**
-     * Get or create service instance
-     */
-    protected function getInstance(string $serviceName, array $serviceData): mixed
-    {
-        if (isset($this->serviceInstances[$serviceName])) {
-            return $this->serviceInstances[$serviceName];
-        }
-
-        $instance = $this->app->make($serviceData['class']);
-
-        if (isset($serviceData['interface']) && !($instance instanceof $serviceData['interface'])) {
-            throw new \RuntimeException(
-                "Service {$serviceName} must implement {$serviceData['interface']}"
-            );
-        }
-
-        $this->serviceInstances[$serviceName] = $instance;
-
-        return $instance;
     }
 
     /**

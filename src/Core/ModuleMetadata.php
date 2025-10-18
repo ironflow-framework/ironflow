@@ -26,12 +26,31 @@ class ModuleMetaData
         public readonly string $path = '',
         public readonly string $namespace = '',
     ) {
-        if (empty($name)) {
+        $this->validate();
+    }
+
+    protected function validate(): void
+    {
+        if (empty($this->name)) {
             throw new \InvalidArgumentException('Module name cannot be empty');
         }
 
-        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) {
-            throw new \InvalidArgumentException('Version must follow semver format');
+        if (!preg_match('/^[A-Z][a-zA-Z0-9]*$/', $this->name)) {
+            throw new \InvalidArgumentException(
+                "Module name '{$this->name}' must start with uppercase and contain only alphanumeric characters"
+            );
+        }
+
+        if (!preg_match('/^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/', $this->version)) {
+            throw new \InvalidArgumentException(
+                "Version '{$this->version}' must follow semantic versioning (e.g., 1.0.0 or 1.0.0-beta)"
+            );
+        }
+
+        foreach ($this->dependencies as $dep) {
+            if (!is_string($dep) || empty($dep)) {
+                throw new \InvalidArgumentException('Dependencies must be non-empty strings');
+            }
         }
     }
 
@@ -71,5 +90,13 @@ class ModuleMetaData
     public function provides(string $service): bool
     {
         return in_array($service, $this->provides, true);
+    }
+
+    /**
+     * Check version compatibility
+     */
+    public function isCompatibleWith(string $requiredVersion): bool
+    {
+        return version_compare($this->version, $requiredVersion, '>=');
     }
 }

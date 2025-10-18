@@ -7,9 +7,16 @@ namespace IronFlow\Permissions;
 use Illuminate\Contracts\Foundation\Application;
 use IronFlow\Core\BaseModule;
 use IronFlow\Contracts\PermissibleInterface;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\{Gate, Cache};
 
+/**
+ * ModulePermissionManager
+ *
+ * IronFlow Module Permission System
+ *
+ * @author Aure Dulvresse
+ * @package IronFlow\Permission
+ */
 class ModulePermissionManager
 {
     protected Application $app;
@@ -61,7 +68,7 @@ class ModulePermissionManager
     }
 
     /**
-     * Check if user has permission
+     * Check if user has permission avec support wildcards
      */
     public function userHasPermission($user, string $permission): bool
     {
@@ -78,9 +85,18 @@ class ModulePermissionManager
         $cacheKey = "ironflow.permissions.{$user->id}.{$permission}";
 
         return Cache::remember($cacheKey, 3600, function () use ($user, $permission) {
-            // Check direct permissions
+            // Check exact permission
             if (method_exists($user, 'hasPermission') && $user->hasPermission($permission)) {
                 return true;
+            }
+
+            // Check wildcard permissions (blog.* permet blog.create-posts)
+            $parts = explode('.', $permission);
+            for ($i = count($parts) - 1; $i > 0; $i--) {
+                $wildcardPermission = implode('.', array_slice($parts, 0, $i)) . '.*';
+                if (method_exists($user, 'hasPermission') && $user->hasPermission($wildcardPermission)) {
+                    return true;
+                }
             }
 
             // Check via roles
@@ -101,7 +117,28 @@ class ModulePermissionManager
      */
     public function roleHasPermission(string $roleName, string $permission): bool
     {
-        return isset($this->roles[$roleName]) && in_array($permission, $this->roles[$roleName]);
+        if (!isset($this->roles[$roleName])) {
+            return false;
+        }
+
+        $rolePermissions = $this->roles[$roleName];
+
+        // Check exact match
+        if (in_array($permission, $rolePermissions)) {
+            return true;
+        }
+
+        // Check wildcards in role permissions
+        foreach ($rolePermissions as $rolePermission) {
+            if (str_ends_with($rolePermission, '.*')) {
+                $prefix = substr($rolePermission, 0, -2);
+                if (str_starts_with($permission, $prefix . '.')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
