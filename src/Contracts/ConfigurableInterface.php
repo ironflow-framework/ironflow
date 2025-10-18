@@ -30,5 +30,5 @@ interface ConfigurableInterface
      *
      * @return void
      */
-    public function mergeConfig(): void;
+    public function publishConfig(): void;
 }

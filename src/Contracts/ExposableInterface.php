@@ -14,13 +14,14 @@ interface ExposableInterface
     /**
      * Expose services from this module.
      *
-     * Returns an array with 'public' and 'linked' keys:
-     * [
-     *     'public' => [...services available to all],
-     *     'linked' => [...services available to linked modules only]
-     * ]
-     *
      * @return array
      */
     public function expose(): array;
+
+    /**
+     * Expose services from this module to linked modules
+     *
+     * @return array
+     */
+    public function exposeLinked(): array;
 }
