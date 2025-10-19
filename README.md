@@ -4,9 +4,7 @@
 </p>
 
 <p align="center">
-
   <strong>A Powerful Modular Framework for Laravel 12+</strong>
-  
 </p>
 
 <p align="center">
