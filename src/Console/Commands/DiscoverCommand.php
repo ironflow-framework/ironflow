@@ -7,35 +7,32 @@ namespace IronFlow\Console\Commands;
 use Illuminate\Console\Command;
 use IronFlow\Facades\Anvil;
 
-/**
- * DiscoverCommand
- */
 class DiscoverCommand extends Command
 {
-    protected $signature = 'ironflow:discover
-                            {--fresh : Clear the cache before discovering}';
-
-    protected $description = 'Discover and register all IronFlow modules';
+    protected $signature = 'ironflow:discover';
+    protected $description = 'Discover all IronFlow modules';
 
     public function handle(): int
     {
+        $this->info('Discovering modules...');
 
-        if ($this->option('fresh')) {
-            $this->call('ironflow:cache:clear');
+        try {
+            Anvil::discover();
+
+            $modules = Anvil::getModules();
+            $count = count($modules);
+
+            $this->output->info("Discovered {$count} module(s):");
+
+            foreach ($modules as $name => $module) {
+                $state = $module->getState()->value;
+                $this->line("  - {$name} [{$state}]");
+            }
+
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->output->error("Discovery failed: {$e->getMessage()}");
+            return self::FAILURE;
         }
-        
-        $this->output->info('Discovering IronFlow modules...');
-
-        Anvil::discover();
-        $stats = Anvil::getStatistics();
-
-        foreach ($stats as $key => $value) {
-            $this->line("    {$key} : {$value}");
-        }
-
-        // Cache the discovery results
-        $this->call('ironflow:cache:modules');
-
-        return self::SUCCESS;
     }
 }

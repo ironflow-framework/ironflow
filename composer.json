@@ -1,37 +1,44 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
     "name": "ironflow/ironflow",
-    "description": "A modular architecture framework for Laravel 12+",
-    "type": "library",
-    "license": "MIT",
+    "description": "A powerful modular framework for Laravel 12+ with advanced module management, service exposure, and lazy loading",
     "keywords": [
         "laravel",
-        "modular",
         "modules",
+        "modular",
+        "ironflow",
         "architecture",
-        "framework",
-        "ironflow"
+        "microservices",
+        "framework"
     ],
+    "license": "MIT",
+    "type": "library",
     "authors": [
         {
             "name": "Aure Dulvresse",
-            "email": "ironflow.framework@gmail.com",
-            "homepage": "https://ironflow.dev"
+            "email": "ironflow.framework@gmail.com"
         }
     ],
     "require": {
         "php": "^8.2",
+        "illuminate/support": "^12.0",
         "illuminate/console": "^12.0",
         "illuminate/database": "^12.0",
+        "illuminate/events": "^12.0",
         "illuminate/filesystem": "^12.0",
-        "illuminate/support": "^12.0"
+        "illuminate/routing": "^12.0",
+        "illuminate/view": "^12.0"
     },
     "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "orchestra/testbench": "^10.0",
         "mockery/mockery": "^1.6",
-        "orchestra/testbench": "10.0",
+        "laravel/pint": "^1.13",
+        "phpstan/phpstan": "^1.10",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0",
-        "phpunit/phpunit": "^11.0"
+        "pestphp/pest-plugin-faker": "^3.0"
+
     },
     "autoload": {
         "psr-4": {
@@ -43,28 +50,30 @@
             "IronFlow\\Tests\\": "tests/"
         }
     },
-    "scripts": {
-        "test": "vendor/bin/pest",
-        "test-coverage": "vendor/bin/pest --coverage",
-        "format": "vendor/bin/php-cs-fixer fix"
-    },
     "extra": {
         "laravel": {
             "providers": [
                 "IronFlow\\IronFlowServiceProvider"
             ],
             "aliases": {
-                "Anvil": "IronFlow\\Facades\\Anvil",
-                "ModuleEvent" : "IronFlow\\Facades\\EventBus"
+                "Anvil": "IronFlow\\Facades\\Anvil"
             }
         }
     },
+    "scripts": {
+        "test": "pest",
+        "test:coverage": "pest --coverage",
+        "test:parallel": "pest --parallel",
+        "format": "vendor/bin/pint",
+        "analyse": "vendor/bin/phpstan analyse"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
     "config": {
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true
-        }
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true
+        },
+        "optimize-autoloader": true
+    }
 }

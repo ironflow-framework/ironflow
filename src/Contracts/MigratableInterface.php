@@ -16,12 +16,17 @@ interface MigratableInterface
      *
      * @return string
      */
-    public function getMigrationPath(): string;
+    public function getMigrationsPath(): string;
 
     /**
-     * Get migration table prefix to avoid conflicts.
-     *
-     * @return string
+     * Run module migrations
+     * @return void
      */
-    public function getMigrationPrefix(): string;
+    public function runMigrations(): void;
+
+    /**
+     * Rollback module migrations
+     * @return void
+     */
+    public function rollbackMigrations(): void;
 }

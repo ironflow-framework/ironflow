@@ -1,78 +1,102 @@
 <?php
 
-namespace {{namespace}}\{{name}};
+namespace {{namespace}};
 
-use IronFlow\Core\BaseModule;
-use IronFlow\Core\ModuleMetaData;
-use IronFlow\Contracts\BootableInterface;
+use IronFlow\Core\{BaseModule, ModuleMetaData};
+use IronFlow\Interfaces\{ViewableInterface, RoutableInterface, ConfigurableInterface, MigratableInterface};
 
-class {{name}}Module extends BaseModule implements BootableInterface
+class {{name}}Module extends BaseModule implements
+    ViewableInterface,
+    RoutableInterface,
+    ConfigurableInterface,
+    MigratableInterface
 {
-    /**
-     * Get module name.
-     *
-     * @return string
-     */
-    protected function getModuleName(): string
+    protected function defineMetadata(): ModuleMetaData
     {
-        return '{{name}}';
+        return new ModuleMetaData(
+            name: '{{name}}',
+            version: '1.0.0',
+            description: '{{description}}',
+            author: '{{author}}',
+            dependencies: [],
+            provides: ['{{name}}Service'],
+            path: __DIR__,
+            namespace: __NAMESPACE__,
+        );
     }
 
-    /**
-     * Create module metadata.
-     *
-     * @return ModuleMetaData
-     */
-    protected function createMetadata(): ModuleMetaData
-    {
-        return new ModuleMetaData([
-            'name' => '{{name}}',
-            'version' => '1.0.0',
-            'description' => '{{name}} module for IronFlow',
-            'authors' => [
-                [
-                    'name' => 'Your Name',
-                    'email' => 'your.email@example.com',
-                ],
-            ],
-            'dependencies' => [],
-            'required' => [],
-            'enabled' => true,
-            'priority' => 50,
-            'provides' => [],
-            'allowOverride' => false,
-        ]);
-    }
-
-     /**
-     * Register module services.
-     *
-     * @return void
-     */
-    public function register(): void
-    {
-        // Register your services here
-    }
-    
-    /**
-     * Boot module.
-     *
-     * @return void
-     */
-    public function boot(): void
-    {
-        // Additional boot logic if needed
-        // Note: Views, routes, migrations are already loaded by IronFlow
-    }
-
-    /**
-     * Custom boot logic (BootableInterface).
-     * Called AFTER views, routes, etc. are loaded.
-     *
-     * @return void
-     */
     public function bootModule(): void
     {
-        // Custom boot logic here
+        // Boot logic here
+    }
+
+    public function expose(): array
+    {
+        return [
+            '{{name}}Service' => Services\{{name}}Service::class,
+        ];
+    }
+
+    public function registerViews(): void
+    {
+        $this->app['view']->addNamespace(
+            $this->getViewNamespace(),
+            $this->getViewsPath()
+        );
+    }
+
+    public function getViewsPath(): string
+    {
+        return $this->getPath('Resources/views');
+    }
+
+    public function getViewNamespace(): string
+    {
+        return strtolower($this->getName());
+    }
+
+    public function registerRoutes(): void
+    {
+        require $this->getRoutesPath();
+    }
+
+    public function getRoutesPath(): string
+    {
+        return $this->getPath('routes/web.php');
+    }
+
+    public function getRouteMiddleware(): array
+    {
+        return ['web'];
+    }
+
+    public function getConfigPath(): string
+    {
+        return $this->getPath('config/' . strtolower($this->getName()) . '.php');
+    }
+
+    public function getConfigKey(): string
+    {
+        return strtolower($this->getName());
+    }
+
+    public function publishConfig(): void
+    {
+        // Handled by ModuleServiceProvider
+    }
+
+    public function getMigrationsPath(): string
+    {
+        return $this->getPath('Database/Migrations');
+    }
+
+    public function runMigrations(): void
+    {
+        // Handled by MigratorManager
+    }
+
+    public function rollbackMigrations(): void
+    {
+        // Handled by MigratorManager
     }
 }

@@ -12,11 +12,17 @@ namespace IronFlow\Contracts;
 interface RoutableInterface
 {
     /**
+     * Register routes
+     * @return void
+     */
+    public function registerRoutes(): void;
+
+    /**
      * Get the route files for this module.
      *
-     * @return array ['web' => 'path/to/web.php', 'api' => 'path/to/api.php']
+     * @return string
      */
-    public function getRouteFiles(): array;
+    public function getRoutesPath(): string;
 
     /**
      * Get route middleware for this module.
@@ -24,11 +30,4 @@ interface RoutableInterface
      * @return array
      */
     public function getRouteMiddleware(): array;
-
-    /**
-     * Get route prefix (if any).
-     *
-     * @return string|null
-     */
-    public function getRoutePrefix(): ?string;
 }

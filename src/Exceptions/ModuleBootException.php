@@ -11,12 +11,5 @@ namespace IronFlow\Exceptions;
  */
 class ModuleBootException extends ModuleException
 {
-    public function __construct(string $moduleName, string $reason = '', int $code = 0, ?\Throwable $previous = null)
-    {
-        $message = "Module '{$moduleName}' failed to boot";
-        if ($reason) {
-            $message .= ": {$reason}";
-        }
-        parent::__construct($message, $code, $previous);
-    }
+    //
 }

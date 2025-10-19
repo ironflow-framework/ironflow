@@ -9,32 +9,18 @@ namespace IronFlow\Contracts;
  */
 interface SeedableInterface
 {
-    /**
-     * Get the seeders for this module.
-     *
-     * @return array
-     */
-    public function getSeeders(): array;
 
     /**
      * Get the seeder path.
      *
      * @return string
      */
-    public function getSeederPath(): string;
+    public function getSeedersPath(): string;
 
     /**
      * Seed the module database.
      *
-     * @param string|null $seederClass
      * @return void
      */
-    public function seed(?string $seederClass = null): void;
-
-    /**
-     * Get seeder priority (higher = runs first).
-     *
-     * @return int
-     */
-    public function getSeederPriority(): int;
+    public function runSeeders(): void;
 }

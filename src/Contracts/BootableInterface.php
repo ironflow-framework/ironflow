@@ -17,4 +17,10 @@ interface BootableInterface
      * @return void
      */
     public function bootModule(): void;
+
+    /**
+     * Return module is booted
+     * @return bool
+     */
+    public function isBooted(): bool;
 }

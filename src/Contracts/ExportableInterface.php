@@ -12,46 +12,65 @@ namespace IronFlow\Contracts;
 interface ExportableInterface
 {
     /**
-     * Prepare module for export to Packagist.
-     *
-     * Returns array with export configuration:
-     * [
-     *     'files' => [...files to include],
-     *     'assets' => [...assets to include],
-     *     'config' => [...config to include],
-     *     'stubs' => [...stubs to include],
-     *     'exclude' => [...patterns to exclude]
-     * ]
-     *
-     * @return array
-     */
-    public function export(): array;
-
-    /**
-     * Get the package name for composer.
-     *
-     * @return string
+     * Get package name for Packagist
+     * Format: vendor/package-name
      */
     public function getPackageName(): string;
 
     /**
-     * Get package description.
-     *
-     * @return string
+     * Get package description
      */
     public function getPackageDescription(): string;
 
     /**
-     * Get package dependencies (composer require).
-     *
-     * @return array
+     * Get package keywords for Packagist
+     */
+    public function getPackageKeywords(): array;
+
+    /**
+     * Get package license (MIT, GPL-3.0, etc.)
+     */
+    public function getPackageLicense(): string;
+
+    /**
+     * Get package homepage URL
+     */
+    public function getPackageHomepage(): ?string;
+
+    /**
+     * Get package authors
+     * Format: [['name' => 'John Doe', 'email' => 'john@example.com', 'homepage' => '...', 'role' => 'Developer']]
+     */
+    public function getPackageAuthors(): array;
+
+    /**
+     * Get package dependencies (composer require)
      */
     public function getPackageDependencies(): array;
 
     /**
-     * Get package autoload configuration.
-     *
-     * @return array
+     * Get package dev dependencies (composer require-dev)
      */
-    public function getPackageAutoload(): array;
+    public function getPackageDevDependencies(): array;
+
+    /**
+     * Get files/folders to exclude from package
+     */
+    public function getExcludedPaths(): array;
+
+    /**
+     * Get additional composer.json data
+     */
+    public function getAdditionalComposerData(): array;
+
+    /**
+     * Prepare module for publication (optional hook)
+     * Called before packaging
+     */
+    public function beforePublish(): void;
+
+    /**
+     * Post-publish hook (optional)
+     */
+    public function afterPublish(): void;
 }

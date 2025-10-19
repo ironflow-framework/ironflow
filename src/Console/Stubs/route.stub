@@ -1,17 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use {{namespace}}\{{name}}\Http\Controllers\{{name}}Controller;
+use {{namespace}}\Http\Controllers\{{name}}Controller;
 
-/*
-|--------------------------------------------------------------------------
-| {{name}} Module Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for the {{name}} module.
-|
-*/
-
-Route::group(['middleware' => ['web']], function () {
-    Route::resource('{{lower_name}}', {{name}}Controller::class);
+Route::middleware(['web'])->group(function () {
+    Route::get('/{{name}}', [{{name}}Controller::class, 'index'])->name('{{name}}.index');
+    Route::get('/{{name}}/{id}', [{{name}}Controller::class, 'show'])->name('{{name}}.show');
 });

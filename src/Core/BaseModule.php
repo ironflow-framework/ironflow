@@ -1,107 +1,82 @@
 <?php
 
+declare(strict_types=1);
+
 namespace IronFlow\Core;
 
-use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Foundation\Application;
+use IronFlow\Exceptions\ModuleException;
+use IronFlow\Contracts\{
+    BootableInterface,
+    ExposableInterface
+};
 
 /**
  * BaseModule
  *
  * Base class for all IronFlow modules.
- * No longer extends ServiceProvider - acts as pure module descriptor.
  */
-abstract class BaseModule
+abstract class BaseModule implements BootableInterface, ExposableInterface
 {
-    /**
-     * @var Application
-     */
     protected Application $app;
-
-    /**
-     * @var ModuleMetaData Module metadata
-     */
+    protected ModuleState $state = ModuleState::UNREGISTERED;
     protected ModuleMetaData $metadata;
+    protected array $config = [];
+    protected ?\Throwable $lastError = null;
 
-    /**
-     * @var ModuleState Module state
-     */
-    protected ModuleState $state;
-
-    /**
-     * @var string Module base path
-     */
-    protected string $modulePath;
-
-    /**
-     * @var string Module name
-     */
-    protected string $moduleName;
-
-    /**
-     * Create a new module instance.
-     *
-     * @param Application $app
-     */
-    public function __construct(Application $app)
+    public function __construct()
     {
-        $this->app = $app;
-        $this->moduleName = $this->getModuleName();
-        $this->modulePath = $this->getModulePath();
-        $this->metadata = $this->createMetadata();
-        $this->state = new ModuleState();
+        $this->app = app();
+        $this->metadata = $this->defineMetadata();
     }
 
     /**
-     * Get module name (must be implemented by child).
-     *
-     * @return string
+     * Define module metadata - must be implemented by child classes
      */
-    abstract protected function getModuleName(): string;
+    abstract protected function defineMetadata(): ModuleMetaData;
 
     /**
-     * Create module metadata.
-     *
-     * @return ModuleMetaData
-     */
-    abstract protected function createMetadata(): ModuleMetaData;
-
-    /**
-     * Register module services (optional).
-     * Called during service container registration phase.
-     *
-     * @return void
+     * Register module services, bindings, etc.
      */
     public function register(): void
     {
-        // Override in child modules if needed
+        // Override in child classes if needed
     }
 
     /**
-     * Boot module (optional).
-     * Called during application boot phase.
-     *
-     * @return void
+     * Boot module - load routes, views, etc.
      */
-    public function boot(): void
+    public function bootModule(): void
     {
-        // Override in child modules if needed
+        // Override in child classes if needed
     }
 
     /**
-     * Get module base path.
-     *
-     * @return string
+     * Expose public services
      */
-    protected function getModulePath(): string
+    public function expose(): array
     {
-        $reflection = new \ReflectionClass($this);
-        return dirname($reflection->getFileName());
+        return [];
     }
 
     /**
-     * Get module metadata.
-     *
-     * @return ModuleMetaData
+     * Expose services accessible only to specific linked modules
+     */
+    public function exposeLinked(): array
+    {
+        return [];
+    }
+
+    /**
+     * Check if module is booted
+     */
+    public function isBooted(): bool
+    {
+        return $this->state === ModuleState::BOOTED;
+    }
+
+    /**
+     * Get module metadata
      */
     public function getMetadata(): ModuleMetaData
     {
@@ -109,9 +84,15 @@ abstract class BaseModule
     }
 
     /**
-     * Get module state.
-     *
-     * @return ModuleState
+     * Get module name
+     */
+    public function getName(): string
+    {
+        return $this->metadata->name;
+    }
+
+    /**
+     * Get module state
      */
     public function getState(): ModuleState
     {
@@ -119,279 +100,78 @@ abstract class BaseModule
     }
 
     /**
-     * Get module name.
-     *
-     * @return string
+     * Set module state with validation
      */
-    public function getName(): string
+    public function setState(ModuleState $state): void
     {
-        return $this->moduleName;
+        if (!$this->state->canTransitionTo($state)) {
+            throw new ModuleException(
+                "Invalid state transition from {$this->state->value} to {$state->value} for module {$this->getName()}"
+            );
+        }
+
+        $this->state = $state;
     }
 
     /**
-     * Get module path.
-     *
-     * @return string
+     * Get module configuration
      */
-    public function getPath(): string
+    public function getConfig(?string $key = null, mixed $default = null): mixed
     {
-        return $this->modulePath;
+        if ($key === null) {
+            return $this->config;
+        }
+
+        return data_get($this->config, $key, $default);
     }
 
     /**
-     * Get application instance.
-     *
-     * @return Application
+     * Set module configuration
      */
-    public function getApp(): Application
+    public function setConfig(array $config): void
     {
-        return $this->app;
-    }
-
-    // =======================================================================
-    // Default Implementations for Interfaces
-    // =======================================================================
-
-    /**
-     * Get view namespace (ViewableInterface).
-     *
-     * @return string
-     */
-    public function getViewNamespace(): string
-    {
-        return strtolower($this->moduleName);
+        $this->config = array_merge($this->config, $config);
     }
 
     /**
-     * Get view paths (ViewableInterface).
-     *
-     * @return array
+     * Mark module as failed with error
      */
-    public function getViewPaths(): array
+    public function markAsFailed(\Throwable $error): void
     {
-        return [
-            $this->modulePath . '/Resources/views',
-        ];
+        $this->lastError = $error;
+        $this->state = ModuleState::FAILED;
     }
 
     /**
-     * Get route files (RoutableInterface).
-     *
-     * @return array
+     * Get last error
      */
-    public function getRouteFiles(): array
+    public function getLastError(): ?\Throwable
     {
-        return [
-            'web' => $this->modulePath . '/Routes/web.php',
-            'api' => $this->modulePath . '/Routes/api.php',
-        ];
+        return $this->lastError;
     }
 
     /**
-     * Get route middleware (RoutableInterface).
-     *
-     * @return array
+     * Check if module is in active state
      */
-    public function getRouteMiddleware(): array
+    public function isActive(): bool
     {
-        return [
-            'web' => ['web'],
-            'api' => ['api'],
-        ];
+        return $this->state->isActive();
     }
 
     /**
-     * Get route prefix (RoutableInterface).
-     *
-     * @return string|null
+     * Get module path
      */
-    public function getRoutePrefix(): ?string
+    public function getPath(?string $subPath = null): string
     {
-        return strtolower($this->moduleName);
+        $basePath = $this->metadata->path;
+        return $subPath ? $basePath . '/' . ltrim($subPath, '/') : $basePath;
     }
 
     /**
-     * Get migration path (MigratableInterface).
-     *
-     * @return string
+     * Get module namespace
      */
-    public function getMigrationPath(): string
+    public function getNamespace(): string
     {
-        return $this->modulePath . '/Database/Migrations';
-    }
-
-    /**
-     * Get migration prefix (MigratableInterface).
-     *
-     * @return string
-     */
-    public function getMigrationPrefix(): string
-    {
-        return strtolower($this->moduleName) . '_';
-    }
-
-    /**
-     * Get config path (ConfigurableInterface).
-     *
-     * @return string
-     */
-    public function getConfigPath(): string
-    {
-        return $this->modulePath . '/config/' . strtolower($this->moduleName) . '.php';
-    }
-
-    /**
-     * Get config key (ConfigurableInterface).
-     *
-     * @return string
-     */
-    public function getConfigKey(): string
-    {
-        return strtolower($this->moduleName);
-    }
-
-    /**
-     * Get translation path (TranslatableInterface).
-     *
-     * @return string
-     */
-    public function getTranslationPath(): string
-    {
-        return $this->modulePath . '/Resources/lang';
-    }
-
-    /**
-     * Get publishable assets (PublishableInterface).
-     *
-     * @return array
-     */
-    public function getPublishableAssets(): array
-    {
-        return [
-            $this->modulePath . '/Resources/css' => public_path('vendor/' . strtolower($this->moduleName) . '/css'),
-            $this->modulePath . '/Resources/js' => public_path('vendor/' . strtolower($this->moduleName) . '/js'),
-        ];
-    }
-
-    /**
-     * Get publishable config (PublishableInterface).
-     *
-     * @return array
-     */
-    public function getPublishableConfig(): array
-    {
-        return [
-            $this->getConfigPath() => config_path(strtolower($this->moduleName) . '.php'),
-        ];
-    }
-
-    /**
-     * Get publishable views (PublishableInterface).
-     *
-     * @return array
-     */
-    public function getPublishableViews(): array
-    {
-        return [
-            $this->modulePath . '/Resources/views' => resource_path('views/vendor/' . strtolower($this->moduleName)),
-        ];
-    }
-
-    /**
-     * Expose services (ExposableInterface).
-     *
-     * @return array
-     */
-    public function expose(): array
-    {
-        return [
-            'public' => [],
-            'linked' => [],
-        ];
-    }
-
-    /**
-     * Get seeders (SeedableInterface).
-     *
-     * @return array
-     */
-    public function getSeeders(): array
-    {
-        return [];
-    }
-
-    /**
-     * Get seeder path (SeedableInterface).
-     *
-     * @return string
-     */
-    public function getSeederPath(): string
-    {
-        return $this->modulePath . '/Database/Seeders';
-    }
-
-    /**
-     * Get seeder priority (SeedableInterface).
-     *
-     * @return int
-     */
-    public function getSeederPriority(): int
-    {
-        return 50;
-    }
-
-    // =======================================================================
-    // Lifecycle Methods
-    // =======================================================================
-
-    /**
-     * Install the module.
-     *
-     * @return void
-     */
-    public function install(): void
-    {
-        // Override in child if needed
-    }
-
-    /**
-     * Enable the module.
-     *
-     * @return void
-     */
-    public function enable(): void
-    {
-        $this->metadata->enable();
-    }
-
-    /**
-     * Disable the module.
-     *
-     * @return void
-     */
-    public function disable(): void
-    {
-        $this->metadata->disable();
-        $this->state->transitionTo(ModuleState::STATE_DISABLED);
-    }
-
-    /**
-     * Update the module.
-     *
-     * @return void
-     */
-    public function update(): void
-    {
-        // Override in child if needed
-    }
-
-    /**
-     * Uninstall the module.
-     *
-     * @return void
-     */
-    public function uninstall(): void
-    {
-        // Override in child if needed
+        return $this->metadata->namespace;
     }
 }

@@ -1,18 +1,7 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | {{name}} Module Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configuration options for the {{name}} module.
-    |
-    */
+    'enabled' => true,
 
-    'enabled' => env('{{upper_name}}_ENABLED', true),
-
-    'options' => [
-        // Module-specific options
-    ],
+    // Add your configuration options here
 ];

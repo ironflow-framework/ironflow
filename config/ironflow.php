@@ -97,4 +97,45 @@ return [
         'log_exceptions' => true,
         'throw_on_missing_dependency' => true,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Publishing module
+    |--------------------------------------------------------------------------
+    |
+    | Configure how publish module .
+    |
+    */
+    'publishing' => [
+        'path' => base_path('publishable'),
+
+        'defaults' => [
+            'license' => 'MIT',
+            'minimum_php' => '^8.2',
+            'minimum_laravel' => '^12.0',
+        ],
+
+        'git' => [
+            'auto_init' => false,
+            'default_branch' => 'main',
+            'commit_message' => 'Initial commit',
+        ],
+
+        'packagist' => [
+            'auto_submit' => false, // Future feature
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Module Versioning
+    |--------------------------------------------------------------------------
+    |
+    | Configure version resolution behavior.
+    |
+    */
+    'versioning' => [
+        'strict' => env('IRONFLOW_VERSION_STRICT', true),
+        'allow_prerelease' => env('IRONFLOW_ALLOW_PRERELEASE', false),
+    ],
 ];
