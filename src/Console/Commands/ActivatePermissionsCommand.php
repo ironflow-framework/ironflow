@@ -15,7 +15,7 @@ class ActivatePermissionsCommand extends Command
 
     public function handle(): int
     {
-        $migrationPath = __DIR__ . '/../../database/2025_01_01_000001_create_ironflow_permissions_tables.php';
+        $migrationPath = __DIR__ . '/../../../database/2025_01_01_000001_create_ironflow_permissions_tables.php';
 
         $this->output->info("Activate IronFlow Permission System");
 
