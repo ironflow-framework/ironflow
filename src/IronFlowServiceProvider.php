@@ -48,6 +48,7 @@ class IronFlowServiceProvider extends ServiceProvider
                 \IronFlow\Console\Commands\InstallCommand::class,
                 \IronFlow\Console\Commands\ActivatePermissionsCommand::class,
                 \IronFlow\Console\Commands\SyncPermissionsCommand::class,
+                \IronFlow\Console\Commands\VersionBumpCommand::class
             ]);
         }
 
