@@ -17,10 +17,10 @@
     <img src="https://img.shields.io/packagist/l/ironflow/ironflow" alt="License" />
   </a>
   <a href="https://github.com/ironflow-framework/ironflow/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/ironflow/ironflow/tests.yml" alt="Tests" />
+    <img src="https://img.shields.io/github/actions/workflow/status/ironflow-framework/ironflow/tests.yml" alt="Tests" />
   </a>
-  <a href="https://codecov.io/gh/ironflow/ironflow">
-    <img src="https://img.shields.io/codecov/c/github/ironflow/ironflow" alt="Coverage" />
+  <a href="https://codecov.io/gh/ironflow-framework/ironflow">
+    <img src="https://img.shields.io/codecov/c/github/ironflow-framework/ironflow" alt="Coverage" />
   </a>
  </p>
 
