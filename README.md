@@ -1,4 +1,3 @@
-
 <p align="center">
   <img src="./ironflow-logo.png" alt="IronFlow Logo" width="200">
 </p>
@@ -7,12 +6,23 @@
   <strong>A Powerful Modular Framework for Laravel 12+</strong>
 </p>
 
-<p align="center">
-  <a href="https://packagist.org/packages/ironflow/ironflow"><img src="https://img.shields.io/packagist/v/ironflow/ironflow" alt="Latest Version"></a>
-  <a href="https://packagist.org/packages/ironflow/ironflow"><img src="https://img.shields.io/packagist/dt/ironflow/ironflow" alt="Total Downloads"></a>
-  <a href="https://packagist.org/packages/ironflow/ironflow"><img src="https://img.shields.io/packagist/l/ironflow/ironflow" alt="License"></a>
-  <a href="https://github.com/ironflow/ironflow"><img src="https://img.shields.io/github/stars/ironflow-framework/ironflow" alt="Stars"></a>
-</p>
+ <p align="center">
+  <a href="https://packagist.org/packages/ironflow/ironflow">
+    <img src="https://img.shields.io/packagist/v/ironflow/ironflow" alt="Latest Version" />
+  </a>
+  <a href="https://packagist.org/packages/ironflow/ironflow">
+    <img src="https://img.shields.io/packagist/dt/ironflow/ironflow" alt="Total Downloads" />
+  </a>
+  <a href="https://packagist.org/packages/ironflow/ironflow">
+    <img src="https://img.shields.io/packagist/l/ironflow/ironflow" alt="License" />
+  </a>
+  <a href="https://github.com/ironflow-framework/ironflow/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/ironflow/ironflow/tests.yml" alt="Tests" />
+  </a>
+  <a href="https://codecov.io/gh/ironflow/ironflow">
+    <img src="https://img.shields.io/codecov/c/github/ironflow/ironflow" alt="Coverage" />
+  </a>
+ </p>
 
 ---
 
@@ -31,6 +41,12 @@ IronFlow is a complete rewrite of the popular modular framework for Laravel. It 
 - **Laravel 12+ Ready**: Built for modern Laravel with PHP 8.2+ features
 
 ---
+
+## Requirements
+
+- **PHP**: 8.2 or higher
+- **Laravel**: 12.0 or higher
+- **Composer**: 2.0 or higher
 
 ## Installation
 
@@ -62,16 +78,15 @@ php artisan ironflow:module:make Blog
 This generates a complete module structure:
 
 ```markdown
-modules/Blog/
-├── BlogModule.php                # Main module class
-├── BlogServiceProvider.php       # Laravel service provider (optional)
-├── Http/Controllers/             # Controllers
-├── Models/                       # Eloquent models
-├── Services/                     # Business logic
-├── Resources/views/              # Blade templates
-├── Database/Migrations/          # Database migrations
-├── routes/web.php                # Routes
-└── config/blog.php               # Configuration
+├── BlogModule.php # Main module class
+├── BlogServiceProvider.php # Laravel service provider (optional)
+├── Http/Controllers/ # Controllers
+├── Models/ # Eloquent models
+├── Services/ # Business logic
+├── Resources/views/ # Blade templates
+├── Database/Migrations/ # Database migrations
+├── routes/web.php # Routes
+└── config/blog.php # Configuration
 ```
 
 ### 2. Define Your Module
@@ -80,39 +95,40 @@ modules/Blog/
 namespace Modules\Blog;
 
 use IronFlow\Core\{BaseModule, ModuleMetaData};
-use IronFlow\Interfaces\{ViewableInterface, RoutableInterface};
+use IronFlow\Interfaces\{
+  ViewableInterface,
+  RoutableInterface,
+  MigratableInterface
+};
 
-class BlogModule extends BaseModule implements 
-    ViewableInterface, 
-    RoutableInterface
+class BlogModule extends BaseModule implements
+  ViewableInterface,
+  RoutableInterface,
+  MigratableInterface
 {
-    protected function defineMetadata(): ModuleMetaData
-    {
-        return new ModuleMetaData(
-            name: 'Blog',
-            version: '1.0.0',
-            description: 'Blog module with posts and comments',
-            author: 'Your Name',
-            dependencies: [],
-            provides: ['BlogService'],
-            path: __DIR__,
-            namespace: __NAMESPACE__,
-        );
-    }
-
-    public function bootModule(): void
-    {
-        // Boot logic here
-    }
-
-    public function expose(): array
-    {
-        return [
-            'blog' => Services\BlogService::class,
-        ];
-    }
-
-    // Implement ViewableInterface and RoutableInterface methods...
+  protected function defineMetadata(): ModuleMetaData
+  {
+      return new ModuleMetaData(
+          name: 'Blog',
+          version: '1.0.0',
+          description: 'Complete blog with posts and comments',
+          author: 'Your Name',
+          dependencies: [
+              'Users' => '^1.0',  // Semver constraints
+          ],
+          provides: ['BlogService', 'PostRepository'],
+          path: __DIR__,
+          namespace: __NAMESPACE__,
+      );
+  }
+  public function expose(): array
+  {
+      return [
+          'blog' => Services\BlogService::class,
+          'posts' => Services\PostRepository::class,
+      ];
+  }
+  // Interface implementations...
 }
 ```
 
@@ -156,30 +172,31 @@ class DashboardController extends Controller
 
 ---
 
-## Key Features
+## Core Features
 
-### Module Lifecycle
+### 1. Module Lifecycle Management
+
+Complete lifecycle with automatic state management:
 
 ```markdown
 UNREGISTERED → REGISTERED → PRELOADED → BOOTING → BOOTED
-                                ↓
-                            FAILED/DISABLED
 ```
 
-Each module goes through a well-defined lifecycle with automatic state management.
+Each state is tracked, validated, and can trigger custom logic.
 
-### Service Exposure
+### 2. Service Exposure & Resolution
 
-**Public Services** (accessible by all):
+**Public Services** (accessible by all modules):
 
 ```php
 public function expose(): array
 {
-    return [
-        'blog' => Services\BlogService::class,
-        'post-repo' => Repositories\PostRepository::class,
-    ];
+   return [
+       'blog' => Services\BlogService::class,
+   ];
 }
+// Usage in any module
+$blogService = Anvil::getService('blog.blog');
 ```
 
 **Linked Services** (restricted access):
@@ -187,68 +204,41 @@ public function expose(): array
 ```php
 public function exposeLinked(): array
 {
-    return [
-        'admin-service' => [
-            'class' => Services\BlogAdminService::class,
-            'allowed' => ['Admin', 'Dashboard'],
-        ],
-    ];
+   return [
+       'admin' => [
+           'class' => Services\AdminService::class,
+           'allowed' => ['Dashboard', 'Settings'],
+       ],
+   ];
 }
 ```
 
-### Lazy Loading
+### 3. Smart Lazy Loading
 
-Configure what to load eagerly vs lazily:
+Hybrid loading strategy for optimal performance:
 
 ```php
 'lazy_loading' => [
-    'enabled' => true,
-    'eager' => ['routes', 'views', 'config'],
-    'lazy' => ['services', 'events', 'commands'],
+   'enabled' => true,
+   'eager' => ['routes', 'views', 'config'],  // Load immediately
+   'lazy' => ['services', 'events', 'commands'], // Load on demand
 ]
 ```
 
-### Dependency Management
+### 4. Semantic Versioning
 
-Declare dependencies and IronFlow handles the rest:
-
-```php
-protected function defineMetadata(): ModuleMetaData
-{
-    return new ModuleMetaData(
-        name: 'Comments',
-        version: '1.0.0',
-        dependencies: [
-          'Blog' => '^1.0', // Comptible with 1.x
-          'Users' => '~1.5' // Only 1.5.x version
-        ],
-        // ...
-    );
-}
-```
-
-IronFlow automatically:
-
-- Resolves boot order
-- Detects circular dependencies
-- Validates missing dependencies
-
-### Module Versioning
-
-IronFlow  adheres to Semantic Version (semver).
-
-#### Contraintes Supportées
+Full semver support with constraint validation:
 
 - `^1.2.3` - Caret : `>=1.2.3 <2.0.0`
 - `~1.2.3` - Tilde : `>=1.2.3 <1.3.0`
-- `>=1.0.0` - Supérieur ou égal
-- `<2.0.0` - Inférieur
-- `1.2.3` - Version exacte
-- `*` - Toute version
-- `^1.0 || ^2.0` - OR logique
-- `>=1.0 <2.0` - AND logique
+- `>=1.0.0` - Superior
+- `<2.0.0` - Inferior
+- `1.2.3` - Exact version
+- `*` - All version
+- `^1.0 || ^2.0` - logic OR
+- `>=1.0 <2.0` - logic AND
 
-## Bumper une Version
+#### Bumper une Version
 
 ```bash
 # Patch (1.2.3 → 1.2.4)
@@ -297,7 +287,7 @@ use IronFlow\Testing\ModuleTestCase;
 
 test('my module feature works', function () {
     $module = createTestModule('MyModule');
-    
+
     expect($module->getName())->toBe('MyModule')
         ->and($module->getState())->toBe(ModuleState::UNREGISTERED);
 });
@@ -364,19 +354,41 @@ Expose services to other modules:
 implements ExposableInterface
 ```
 
+### ExportableInterface
+
+Export module:
+
+```php
+implements ExportableInterface
+```
+
 ---
 
 ## Artisan Commands
 
-| Command | Description |
-|---------|-------------|
-| `ironflow:install` | Install IronFlow in your project |
-| `ironflow:discover` | Discover all modules |
-| `ironflow:cache` | Cache module manifest for production |
-| `ironflow:clear` | Clear module cache |
-| `ironflow:module:make {name}` | Create a new module |
-| `ironflow:migrate {module?}` | Run module migrations |
-| `ironflow:list` | List all registered modules |
+| Command                                 | Description                          |
+| --------------------------------------- | ------------------------------------ |
+| `ironflow:install`                      | Install IronFlow in your project     |
+| `ironflow:discover`                     | Discover all modules                 |
+| `ironflow:cache`                        | Cache module manifest for production |
+| `ironflow:clear`                        | Clear module cache                   |
+| `ironflow:module:make {name}`           | Create a new module                  |
+| `ironflow:list [--detailed]`            | List all registered modules          |
+| `ironflow:permissions:activate`         | Active permission system             |
+| `ironflow:permissions:sync`             | Sync permissions to database         |
+| `ironflow:publish {module}`             | Prepare for publishing               |
+| `ironflow:version:bump {module} {type}` | Bump version (major/minor/patch)     |
+
+---
+
+## Available Packages
+
+### Official Packages
+
+| Package             | Description     | Status |
+| ------------------- | --------------- | ------ |
+| `ironflow/ironflow` | Core framework  | Stable |
+| `ironflow/admin`    | Admin dashboard | Stable |
 
 ---
 
@@ -403,8 +415,8 @@ namespace Modules\Blog;
 
 use IronFlow\Core\{BaseModule, ModuleMetaData};
 
-class BlogModule extends BaseModule implements 
-    ViewableInterface, 
+class BlogModule extends BaseModule implements
+    ViewableInterface,
     RoutableInterface,
     MigratableInterface,
     ConfigurableInterface
@@ -467,39 +479,6 @@ Features:
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-### Development Setup
-
-```bash
-git clone https://github.com/ironflow/ironflow.git
-cd ironflow
-composer install
-composer test
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-composer test
-
-# Run with coverage
-composer test-coverage
-
-# Run static analysis
-composer analyse
-
-# Format code
-composer format
-```
-
----
-
-## Requirements
-
-- PHP 8.2 or higher
-- Laravel 12.0 or higher
-- Composer 2.0 or higher
-
 ---
 
 ## Security
@@ -516,16 +495,15 @@ IronFlow is open-sourced software licensed under the [MIT license](LICENSE.md).
 
 ## Credits
 
-IronFlow is developed and maintained by:
+Built with love by the Aure Dulvresse and amazing contributors.
 
-- **Core Team**: [IronFlow Team](https://github.com/ironflow)
-- **Contributors**: [All Contributors](https://github.com/ironflow/ironflow/graphs/contributors)
+- **Contributors**: [All Contributors](https://github.com/ironflow-framework/ironflow/graphs/contributors)
 
 Special thanks to:
 
 - Laravel community for inspiration
-- All contributors and testers
-- Package sponsors
+- All our contributors and sponsors
+- Open source libraries we depend on
 
 ---
 
@@ -533,6 +511,7 @@ Special thanks to:
 
 <!-- - **Website**: [ironflow.dev](https://ironflow.dev) -->
 <!-- - **Documentation**: [docs.ironflow.dev](https://docs.ironflow.dev) -->
+
 - **GitHub**: [github.com/ironflow/ironflow](https://github.com/ironflow-framework/ironflow)
 - **Discord**: [discord.gg/ironflow](https://discord.gg/9Vy9Tz94j9)
 <!-- - **Twitter**: [@ironflowphp](https://twitter.com/ironflowphp) -->
@@ -542,20 +521,17 @@ Special thanks to:
 
 ## Sponsors
 
-Support IronFlow development by [becoming a sponsor](https://github.com/sponsors/ironflow-framework).
+Support IronFlow development:
 
 <p align="center">
   <a href="https://github.com/sponsors/ironflow-framework">
-    <img src="https://via.placeholder.com/600x100/667eea/ffffff?text=Become+a+Sponsor" alt="Become a Sponsor">
+    <img src="https://img.shields.io/badge/Sponsor-IronFlow-EA4AAA?style=for-the-badge&logo=GitHubSponsors&logoColor=white" alt="Sponsor">
   </a>
 </p>
 
 ---
 
 <p align="center">
+  <strong>Build Better Modular Applications</strong>
   Made with ❤️ by Aure Dulvresse
-</p>
-
-<p align="center">
-  <strong>Build Modular Laravel Applications with Confidence 🚀</strong>
-</p>
+ </p
