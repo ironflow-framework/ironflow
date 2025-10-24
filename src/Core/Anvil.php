@@ -204,27 +204,29 @@ class Anvil
 
         $routesPath = $module->getRoutesPath();
 
-        if (!file_exists($routesPath)) {
-            Log::debug("Routes file not found for module {$module->getName()}: {$routesPath}");
-            return;
+        foreach ($routesPath as $path) {
+            if (!file_exists($path)) {
+                Log::debug("Routes file not found for module {$module->getName()}: {$path}");
+                return;
+            }
+    
+            $middleware = $module->getRouteMiddleware();
+    
+            Route::middleware($middleware)
+                ->group(function () use ($path, $module) {
+                    // load Routes
+                    require $path;
+                });
+    
+            // Save in the manifest
+            $this->routesManifest[$module->getName()] = [
+                'path' =>  $path,
+                'middleware' => $middleware,
+            ];
         }
 
-        $middleware = $module->getRouteMiddleware();
-
-        Route::middleware($middleware)
-            ->group(function () use ($routesPath, $module) {
-                // load Routes
-                require $routesPath;
-            });
-
-        // Save in the manifest
-        $this->routesManifest[$module->getName()] = [
-            'path' => $routesPath,
-            'middleware' => $middleware,
-        ];
-
         Log::debug("Routes registered immediately for module {$module->getName()}", [
-            'path' => $routesPath,
+            'path' => $path,
             'middleware' => $middleware,
         ]);
     }
