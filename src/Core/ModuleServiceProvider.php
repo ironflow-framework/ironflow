@@ -5,96 +5,86 @@ declare(strict_types=1);
 namespace IronFlow\Core;
 
 use Illuminate\Support\ServiceProvider;
-use IronFlow\Contracts\{
-    ViewableInterface,
-    RoutableInterface,
-    MigratableInterface,
-    ConfigurableInterface
-};
+use Illuminate\Contracts\Foundation\Application;
 
+/**
+ * ModuleServiceProvider avec constructeur personnalisé
+ * 
+ * Ce provider reçoit $app ET $module dans son constructeur
+ * Il est instancié manuellement par Anvil
+ */
 abstract class ModuleServiceProvider extends ServiceProvider
 {
     protected BaseModule $module;
 
-    public function __construct($app, BaseModule $module)
+    /**
+     * Constructeur personnalisé recevant le module
+     * 
+     * @param Application $app
+     * @param BaseModule $module
+     */
+    public function __construct(Application $app, BaseModule $module)
     {
         parent::__construct($app);
         $this->module = $module;
     }
 
+    /**
+     * Register est appelé immédiatement par Anvil
+     */
     public function register(): void
     {
-        // Register config if module is configurable
-        if ($this->module instanceof ConfigurableInterface) {
-            $configPath = $this->module->getConfigPath();
-            $configKey = $this->module->getConfigKey();
-
-            if (file_exists($configPath)) {
-                $this->mergeConfigFrom($configPath, $configKey);
-            }
-        }
+        // Les enfants peuvent override
     }
 
+    /**
+     * Boot est appelé soit immédiatement si l'app est bootée,
+     * soit par Laravel au moment du boot de l'app
+     */
     public function boot(): void
     {
-        // Load routes
-        if ($this->module instanceof RoutableInterface) {
-            $this->loadRoutes();
-        }
+        // Les enfants peuvent override
+        
+        // Note : Les routes et vues sont déjà chargées par Anvil
+        // Ce provider peut faire des choses supplémentaires :
+        // - Publier des assets
+        // - Enregistrer des view composers
+        // - Enregistrer des event listeners
+        // - etc.
+    }
 
-        // Load views
-        if ($this->module instanceof ViewableInterface) {
-            $this->loadViews();
-        }
-
-        // Load migrations
-        if ($this->module instanceof MigratableInterface) {
-            $this->loadMigrations();
-        }
-
-        // Publish config
-        if ($this->module instanceof ConfigurableInterface) {
-            $this->publishConfiguration();
+    /**
+     * Helper pour publier des assets
+     */
+    protected function publishAssets(?string $tag = null): void
+    {
+        $tag = $tag ?? strtolower($this->module->getName()) . '-assets';
+        
+        $assetsPath = $this->module->getPath('Resources/assets');
+        if (is_dir($assetsPath)) {
+            $this->publishes([
+                $assetsPath => public_path('vendor/' . strtolower($this->module->getName())),
+            ], $tag);
         }
     }
 
-    protected function loadRoutes(): void
+    /**
+     * Helper pour publier la config
+     */
+    protected function publishConfiguration(?string $tag = null): void
     {
-        $routesPath = $this->module->getRoutesPath();
-
-        if (file_exists($routesPath)) {
-            $this->loadRoutesFrom($routesPath);
+        if (!$this->module instanceof \IronFlow\Contracts\ConfigurableInterface) {
+            return;
         }
-    }
 
-    protected function loadViews(): void
-    {
-        $viewsPath = $this->module->getViewsPath();
-        $namespace = $this->module->getViewNamespace();
-
-        if (is_dir($viewsPath)) {
-            $this->loadViewsFrom($viewsPath, $namespace);
-        }
-    }
-
-    protected function loadMigrations(): void
-    {
-        $migrationsPath = $this->module->getMigrationsPath();
-
-        if (is_dir($migrationsPath)) {
-            $this->loadMigrationsFrom($migrationsPath);
-        }
-    }
-
-    protected function publishConfiguration(): void
-    {
+        $tag = $tag ?? strtolower($this->module->getName()) . '-config';
         $configPath = $this->module->getConfigPath();
         $configKey = $this->module->getConfigKey();
 
         if (file_exists($configPath)) {
             $this->publishes([
                 $configPath => config_path("{$configKey}.php"),
-            ], "{$configKey}-config");
+            ], $tag);
         }
     }
 }

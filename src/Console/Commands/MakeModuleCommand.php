@@ -43,7 +43,7 @@ class MakeModuleCommand extends Command
         $this->generateModel($basePath, $studlyName, $namespace);
         $this->generateService($basePath, $studlyName, $namespace);
         $this->generateConfig($basePath, $studlyName);
-        $this->generateRoutes($basePath, $studlyName);
+        $this->generateRoutes($basePath, $studlyName, $namespace);
         $this->generateViews($basePath, $studlyName);
 
         $this->output->info("Module {$studlyName} created successfully at {$basePath}");
@@ -148,10 +148,14 @@ class MakeModuleCommand extends Command
         File::put($basePath . "/config/" . strtolower($name) . ".php", $content);
     }
 
-    protected function generateRoutes(string $basePath, string $name): void
+    protected function generateRoutes(string $basePath, string $name, string $namespace): void
     {
         $stub = $this->getStub('routes');
-        $content = str_replace('{{name}}', $name, $stub);
+        $content = str_replace(
+            ['{{namespace}}', '{{name}}'],
+            [$namespace, $name],
+            $stub
+        );
 
         File::put($basePath . "/routes/web.php", $content);
     }
@@ -179,7 +183,7 @@ class MakeModuleCommand extends Command
     protected function getDefaultStub(string $name): string
     {
         // Return default stub content based on type
-        return match($name) {
+        return match ($name) {
             'module' => $this->getModuleStub(),
             'module-service-provider' => $this->getServiceProviderStub(),
             'controller' => $this->getControllerStub(),
