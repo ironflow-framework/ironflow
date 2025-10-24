@@ -3,7 +3,7 @@
 namespace {{namespace}};
 
 use IronFlow\Core\{BaseModule, ModuleMetaData};
-use IronFlow\Interfaces\{ViewableInterface, RoutableInterface, ConfigurableInterface, MigratableInterface};
+use IronFlow\Contracts\{ViewableInterface, RoutableInterface, ConfigurableInterface, MigratableInterface};
 
 class {{name}}Module extends BaseModule implements
     ViewableInterface,

@@ -89,7 +89,7 @@ This generates a complete module structure:
 namespace Modules\Blog;
 
 use IronFlow\Core\{BaseModule, ModuleMetaData};
-use IronFlow\Interfaces\{
+use IronFlow\Contracts\{
   ViewableInterface,
   RoutableInterface,
   MigratableInterface
@@ -408,6 +408,12 @@ Complete working example included in the repository:
 namespace Modules\Blog;
 
 use IronFlow\Core\{BaseModule, ModuleMetaData};
+use IronFlow\Contracts\{
+  ViewableInterface,
+  RoutableInterface,
+  MigratableInterface,
+  ConfigurableInterface
+}
 
 class BlogModule extends BaseModule implements
     ViewableInterface,

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace IronFlow\Core;
 
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Support\Facades\Log;
-use IronFlow\Core\Discovery\{ModuleDiscovery, ManifestCache, ConflictDetector};
+use Illuminate\Support\Facades\{Route, View, Log};
+use IronFlow\Core\Discovery\{ConflictDetector, ModuleDiscovery, ManifestCache};
 use IronFlow\Services\{ServiceRegistry, LazyLoader, DependencyResolver};
 use IronFlow\Events\ModuleEventDispatcher;
 use IronFlow\Exceptions\{ModuleException, ExceptionHandler};
@@ -25,6 +25,8 @@ class Anvil
     protected Application $app;
     protected array $modules = [];
     protected bool $booted = false;
+
+    // Services
     protected ModuleDiscovery $discovery;
     protected ManifestCache $cache;
     protected ServiceRegistry $serviceRegistry;
@@ -33,6 +35,9 @@ class Anvil
     protected ConflictDetector $conflictDetector;
     protected ModuleEventDispatcher $eventDispatcher;
     protected ExceptionHandler $exceptionHandler;
+
+    protected array $routesManifest = [];
+    protected array $viewsManifest = [];
 
     public function __construct(Application $app)
     {
@@ -58,14 +63,22 @@ class Anvil
 
         try {
             // Discover modules
-            if (config('ironflow.auto_discover', true)) {
-                $this->discover();
+            if ($this->loadFromManifest()) {
+                Log::info('IronFlow loaded from manifest cache');
+            } else {
+                if (config('ironflow.auto_discover', true)) {
+                    $this->discover();
+                }
             }
 
-            // Boot all modules
+            // Boot modules
             $this->bootModules();
 
             $this->booted = true;
+
+            Log::info('IronFlow bootstrapped successfully', [
+                'modules_count' => count($this->modules),
+            ]);
         } catch (\Throwable $e) {
             $this->exceptionHandler->handleBootstrapException($e);
             throw $e;
@@ -84,6 +97,7 @@ class Anvil
         }
 
         // Scan and register modules
+
         $discoveredModules = $this->discovery->scan();
 
         foreach ($discoveredModules as $moduleName => $moduleClass) {
@@ -92,37 +106,187 @@ class Anvil
 
         // Cache manifest if enabled
         if (config('ironflow.cache.enabled')) {
-            $this->cacheManifest();
+            $this->saveManifest();
         }
     }
 
     /**
-     * Register a module
+     * Register module
      */
     public function registerModule(string $moduleName, string $moduleClass): void
     {
         if (isset($this->modules[$moduleName])) {
-            Log::warning("Module {$moduleName} is already registered");
+            Log::warning("Module {$moduleName} already registered");
             return;
         }
 
         try {
+            // 1. Instancier le module
             /** @var BaseModule $module */
             $module = new $moduleClass();
             $module->setState(ModuleState::REGISTERED);
 
-            // Call register method
+            // 2. Call register method
             $module->register();
 
+            // 3. Load module views
+            $this->registerModuleViewsImmediately($module);
+
+            // 4. Load module routes
+            $this->registerModuleRoutesImmediately($module);
+
+            // 5. Load module config
+            $this->registerModuleConfigImmediately($module);
+
+            // 6. Instancier et enregistrer le ModuleServiceProvider si présent
+            $this->registerModuleServiceProviderImmediately($module);
+
+            // 7. Stocker le module
             $this->modules[$moduleName] = $module;
 
-            // Dispatch event
+            // 8. Dispatch event
             $this->eventDispatcher->dispatch(new ModuleRegistered($module));
 
-            Log::info("Module {$moduleName} registered successfully");
+            Log::info("Module {$moduleName} registered with immediate loading", [
+                'has_views' => $module instanceof \IronFlow\Contracts\ViewableInterface,
+                'has_routes' => $module instanceof \IronFlow\Contracts\RoutableInterface,
+            ]);
         } catch (\Throwable $e) {
             $this->exceptionHandler->handleModuleException($moduleName, $e, 'registration');
-            throw new ModuleException("Failed to register module {$moduleName}: {$e->getMessage()}", 0, $e);
+            throw new ModuleException(
+                "Failed to register module {$moduleName}: {$e->getMessage()}",
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * Register module views
+     */
+    protected function registerModuleViewsImmediately(BaseModule $module): void
+    {
+        if (!$module instanceof \IronFlow\Contracts\ViewableInterface) {
+            return;
+        }
+
+        $viewsPath = $module->getViewsPath();
+        $namespace = $module->getViewNamespace();
+
+        if (!is_dir($viewsPath)) {
+            Log::debug("Views directory not found for module {$module->getName()}: {$viewsPath}");
+            return;
+        }
+
+        // Enregistrement immédiat dans le View Factory de Laravel
+        View::addNamespace($namespace, $viewsPath);
+
+        // Enregistrer dans le manifest pour cache
+        $this->viewsManifest[$module->getName()] = [
+            'namespace' => $namespace,
+            'path' => $viewsPath,
+        ];
+
+        Log::debug("Views registered immediately for module {$module->getName()}", [
+            'namespace' => $namespace,
+            'path' => $viewsPath,
+        ]);
+    }
+
+    /**
+     * Register a module routes
+     */
+    protected function registerModuleRoutesImmediately(BaseModule $module): void
+    {
+        if (!$module instanceof \IronFlow\Contracts\RoutableInterface) {
+            return;
+        }
+
+        $routesPath = $module->getRoutesPath();
+
+        if (!file_exists($routesPath)) {
+            Log::debug("Routes file not found for module {$module->getName()}: {$routesPath}");
+            return;
+        }
+
+        $middleware = $module->getRouteMiddleware();
+
+        Route::middleware($middleware)
+            ->group(function () use ($routesPath, $module) {
+                // load Routes
+                require $routesPath;
+            });
+
+        // Save in the manifest
+        $this->routesManifest[$module->getName()] = [
+            'path' => $routesPath,
+            'middleware' => $middleware,
+        ];
+
+        Log::debug("Routes registered immediately for module {$module->getName()}", [
+            'path' => $routesPath,
+            'middleware' => $middleware,
+        ]);
+    }
+
+    protected function registerModuleConfigImmediately(BaseModule $module): void
+    {
+        if (!$module instanceof \IronFlow\Contracts\ConfigurableInterface) {
+            return;
+        }
+
+        $configPath = $module->getConfigPath();
+        $configKey = $module->getConfigKey();
+
+        if (!file_exists($configPath)) {
+            return;
+        }
+
+        // Merge config in Laravel
+        $config = require $configPath;
+        config()->set($configKey, array_merge(
+            config($configKey, []),
+            $config
+        ));
+
+        $module->setConfig($config);
+
+        Log::debug("Config registered immediately for module {$module->getName()}", [
+            'key' => $configKey,
+        ]);
+    }
+
+    protected function registerModuleServiceProviderImmediately(BaseModule $module): void
+    {
+        $moduleName = $module->getName();
+        $providerClass = $module->getNamespace() . '\\' . $moduleName . 'ServiceProvider';
+
+        if (!class_exists($providerClass)) {
+            return;
+        }
+
+        try {
+            $provider = new $providerClass($this->app, $module);
+
+            if (method_exists($provider, 'register')) {
+                $provider->register();
+            }
+
+            // Register ServiceProvider in Laravel
+            if ($this->app->hasBeenBootstrapped() && method_exists($provider, 'boot')) {
+                $provider->boot();
+            } else {
+                $this->app->register($provider);
+            }
+
+            Log::debug("ModuleServiceProvider registered for {$moduleName}", [
+                'provider' => $providerClass,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Failed to register ModuleServiceProvider for {$moduleName}", [
+                'provider' => $providerClass,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -146,7 +310,7 @@ class Anvil
             }
         }
 
-        // Boot modules in dependency order avec transaction
+        // Boot modules in dependency order with transaction
         $bootedModules = [];
 
         try {
@@ -210,12 +374,10 @@ class Anvil
         }
 
         try {
-            // Dispatch booting event
             $this->eventDispatcher->dispatch(new ModuleBooting($module));
 
             $module->setState(ModuleState::BOOTING);
 
-            // Boot the module
             $module->bootModule();
 
             // Register services
@@ -229,17 +391,15 @@ class Anvil
             // Dispatch booted event
             $this->eventDispatcher->dispatch(new ModuleBooted($module));
 
+            Log::info("Module {$moduleName} booted successfully");
         } catch (\Throwable $e) {
             $module->markAsFailed($e);
-
-            // Dispatch failed event
             $this->eventDispatcher->dispatch(new ModuleFailed($module, $e));
-
             $this->exceptionHandler->handleModuleException($moduleName, $e, 'boot');
 
             throw new ModuleException(
                 "Failed to boot module '{$moduleName}': {$e->getMessage()}\n" .
-                "File: {$e->getFile()}:{$e->getLine()}",
+                    "File: {$e->getFile()}:{$e->getLine()}",
                 0,
                 $e
             );
@@ -256,6 +416,104 @@ class Anvil
 
         $this->serviceRegistry->registerPublicServices($module->getName(), $publicServices);
         $this->serviceRegistry->registerLinkedServices($module->getName(), $linkedServices);
+    }
+
+    /**
+     * Save manifest (modules + routes + views)
+     */
+    public function saveManifest(): void
+    {
+        $manifest = [
+            'generated_at' => now()->toIso8601String(),
+            'modules' => [],
+            'routes_manifest' => $this->routesManifest,
+            'views_manifest' => $this->viewsManifest,
+        ];
+
+        foreach ($this->modules as $name => $module) {
+            $metadata = $module->getMetadata();
+            $manifest['modules'][$name] = [
+                'class' => get_class($module),
+                'metadata' => $metadata->toArray(),
+                'state' => $module->getState()->value,
+                'services' => [
+                    'public' => array_keys($module->expose()),
+                    'linked' => array_keys($module->exposeLinked()),
+                ],
+            ];
+        }
+
+        $this->cache->save($manifest);
+
+        Log::info("Manifest saved", [
+            'modules_count' => count($manifest['modules']),
+            'routes_count' => count($this->routesManifest),
+            'views_count' => count($this->viewsManifest),
+        ]);
+    }
+
+    /**
+     * Load from manifest
+     * Load modules, routes et views from cache
+     */
+    protected function loadFromManifest(): bool
+    {
+        if (!config('ironflow.cache.enabled') || !$this->cache->exists()) {
+            return false;
+        }
+
+        try {
+            $manifest = $this->cache->load();
+
+            if (empty($manifest['modules'])) {
+                return false;
+            }
+
+            if (!empty($manifest['views_manifest'])) {
+                foreach ($manifest['views_manifest'] as $moduleName => $viewData) {
+                    View::addNamespace($viewData['namespace'], $viewData['path']);
+                }
+                $this->viewsManifest = $manifest['views_manifest'];
+            }
+
+            if (!empty($manifest['routes_manifest'])) {
+                foreach ($manifest['routes_manifest'] as $moduleName => $routeData) {
+                    if (file_exists($routeData['path'])) {
+                        Route::middleware($routeData['middleware'])
+                            ->group(function () use ($routeData) {
+                                require $routeData['path'];
+                            });
+                    }
+                }
+                $this->routesManifest = $manifest['routes_manifest'];
+            }
+
+            foreach ($manifest['modules'] as $name => $data) {
+                $this->registerModule($name, $data['class']);
+            }
+
+            Log::info("Loaded from manifest", [
+                'modules' => count($manifest['modules']),
+                'routes' => count($this->routesManifest),
+                'views' => count($this->viewsManifest),
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning("Failed to load from manifest: {$e->getMessage()}");
+            return false;
+        }
+    }
+
+    /**
+     * Clear the module cache
+     */
+    public function clearCache(): void
+    {
+        $this->cache->clear();
+        $this->routesManifest = [];
+        $this->viewsManifest = [];
+        Log::info("Cache cleared");
     }
 
     /**
@@ -311,6 +569,22 @@ class Anvil
     }
 
     /**
+     * Get routes manifest
+     */
+    public function getRoutesManifest(): array
+    {
+        return $this->routesManifest;
+    }
+
+    /**
+     * Get views manifest
+     */
+    public function getViewsManifest(): array
+    {
+        return $this->viewsManifest;
+    }
+
+    /**
      * Cache the module manifest
      */
     public function cacheManifest(): void
@@ -346,15 +620,6 @@ class Anvil
         }
 
         Log::info("Loaded " . count($manifest) . " modules from cache");
-    }
-
-    /**
-     * Clear the module cache
-     */
-    public function clearCache(): void
-    {
-        $this->cache->clear();
-        Log::info("Module cache cleared");
     }
 
     /**
