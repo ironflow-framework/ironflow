@@ -12,12 +12,6 @@ namespace IronFlow\Contracts;
 interface ViewableInterface
 {
     /**
-     * Register views
-     * @return void
-     */
-    public function registerViews(): void;
-
-    /**
      * Get the view namespace for this module.
      *
      * @return string

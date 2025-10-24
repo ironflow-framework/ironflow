@@ -4,6 +4,8 @@ namespace IronFlow\Services;
 
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\View;
 use IronFlow\Core\BaseModule;
 use IronFlow\Contracts\{ExposableInterface, RoutableInterface, ViewableInterface};
 
@@ -36,7 +38,7 @@ class LazyLoader
             $this->loadComponent($module, $component);
         }
 
-        // Register lazy components pour chargement à la demande
+        // Register lazy components
         $this->registerLazyComponents($module);
     }
 
@@ -54,7 +56,6 @@ class LazyLoader
         foreach ($services as $serviceName => $serviceClass) {
             $fullServiceName = strtolower($module->getName()) . '.' . $serviceName;
 
-            // Skip si déjà chargé
             if (isset($this->loadedServices[$fullServiceName])) {
                 continue;
             }
@@ -98,9 +99,25 @@ class LazyLoader
 
         $routesPath = $module->getRoutesPath();
 
-        if (file_exists($routesPath)) {
-            $module->registerRoutes();
+        foreach ($routesPath as $key => $path) {
+            if (!file_exists($path)) {
+                Log::debug("Routes file not found for module {$module->getName()}: {$path}");
+                return;
+            }
+    
+            $middleware = $module->getRouteMiddleware();
+    
+            Route::middleware($middleware)
+                ->group(function () use ($path, $module) {
+                    // load Routes
+                    require $path;
+                });
         }
+
+        Log::debug("Routes registered immediately for module {$module->getName()}", [
+            'path' => $path,
+            'middleware' => $middleware,
+        ]);
     }
 
     /**
@@ -113,10 +130,14 @@ class LazyLoader
         }
 
         $viewsPath = $module->getViewsPath();
+        $namespace = $module->getViewNamespace();
 
-        if (is_dir($viewsPath)) {
-            $module->registerViews();
+        if (!is_dir($viewsPath)) {
+            Log::debug("Views directory not found for module {$module->getName()}: {$viewsPath}");
+            return;
         }
+
+        View::addNamespace($namespace, $viewsPath);
     }
 
     /**
@@ -137,7 +158,7 @@ class LazyLoader
     }
 
     /**
-     * Load services (implémentation réelle lazy)
+     * Load services
      */
     protected function loadServices(BaseModule $module): void
     {
@@ -150,13 +171,29 @@ class LazyLoader
         foreach ($services as $serviceName => $serviceClass) {
             $fullName = strtolower($module->getName()) . '.' . $serviceName;
 
-            // Enregistrer comme lazy avec proxy
+            // Register as lazy with proxy
             $this->app->bindIf($fullName, function ($app) use ($serviceClass, $fullName) {
                 Log::debug("Lazy instantiating service: {$fullName}");
                 return $app->make($serviceClass);
             });
         }
     }
+
+    protected function loadEvents(BaseModule $module): void
+    {
+        // TODO : Implement this method
+    }
+
+    protected function loadCommands(BaseModule $module): void
+    {
+        // TODO : Implement this method
+    }
+
+    protected function loadMiddleware(BaseModule $module): void
+    {
+        // TODO : Implement this method
+    }
+
 
     /**
      * Load all components immediately
