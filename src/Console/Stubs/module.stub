@@ -60,9 +60,14 @@ class {{name}}Module extends BaseModule implements
         require $this->getRoutesPath();
     }
 
-    public function getRoutesPath(): string
+    public function getRoutesPath(): array
     {
-        return $this->getPath('routes/web.php');
+        return [
+            'web' => $this->getPath('routes/web.php'),
+            'api' => $this->getPath('routes/api.php')
+        ];
+    }
+
     }
 
     public function getRouteMiddleware(): array

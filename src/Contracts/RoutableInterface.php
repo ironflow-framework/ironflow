@@ -20,9 +20,9 @@ interface RoutableInterface
     /**
      * Get the route files for this module.
      *
-     * @return string
+     * @return array
      */
-    public function getRoutesPath(): string;
+    public function getRoutesPath(): array;
 
     /**
      * Get route middleware for this module.
