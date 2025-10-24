@@ -12,12 +12,6 @@ namespace IronFlow\Contracts;
 interface RoutableInterface
 {
     /**
-     * Register routes
-     * @return void
-     */
-    public function registerRoutes(): void;
-
-    /**
      * Get the route files for this module.
      *
      * @return array

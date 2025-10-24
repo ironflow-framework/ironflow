@@ -37,14 +37,6 @@ class {{name}}Module extends BaseModule implements
         ];
     }
 
-    public function registerViews(): void
-    {
-        $this->app['view']->addNamespace(
-            $this->getViewNamespace(),
-            $this->getViewsPath()
-        );
-    }
-
     public function getViewsPath(): string
     {
         return $this->getPath('Resources/views');
@@ -53,11 +45,6 @@ class {{name}}Module extends BaseModule implements
     public function getViewNamespace(): string
     {
         return strtolower($this->getName());
-    }
-
-    public function registerRoutes(): void
-    {
-        require $this->getRoutesPath();
     }
 
     public function getRoutesPath(): array
