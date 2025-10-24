@@ -204,7 +204,7 @@ class Anvil
 
         $routesPath = $module->getRoutesPath();
 
-        foreach ($routesPath as $path) {
+        foreach ($routesPath as $key => $path) {
             if (!file_exists($path)) {
                 Log::debug("Routes file not found for module {$module->getName()}: {$path}");
                 return;
