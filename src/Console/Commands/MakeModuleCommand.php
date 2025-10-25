@@ -34,7 +34,7 @@ class MakeModuleCommand extends Command
         $this->info("Creating module: {$studlyName}");
 
         // Create directory structure
-        $this->createDirectories($basePath);
+        $this->createDirectories($basePath, $studlyName);
 
         // Generate files
         $this->generateModuleClass($basePath, $studlyName, $namespace);
@@ -55,13 +55,14 @@ class MakeModuleCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function createDirectories(string $basePath): void
+    protected function createDirectories(string $basePath, string $moduleName): void
     {
         $directories = [
             'Http/Controllers',
             'Models',
             'Services',
             'Resources/views',
+            'Resources/views/' . Str::lower($moduleName),
             'Resources/lang/en',
             'Database/Migrations',
             'Database/Seeders',
@@ -78,10 +79,11 @@ class MakeModuleCommand extends Command
     {
         $stub = $this->getStub('module');
         $content = str_replace(
-            ['{{namespace}}', '{{name}}', '{{author}}', '{{description}}'],
+            ['{{namespace}}', '{{name}}', '{{lower_name}}', '{{author}}', '{{description}}'],
             [
                 $namespace,
                 $name,
+                Str::lower($name),
                 $this->option('author') ?: 'Your Name',
                 $this->option('description') ?: "The {$name} module",
             ],

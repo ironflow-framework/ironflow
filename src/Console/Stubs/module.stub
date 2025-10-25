@@ -39,7 +39,7 @@ class {{name}}Module extends BaseModule implements
 
     public function getViewsPath(): string
     {
-        return $this->getPath('Resources/views');
+        return $this->getPath('Resources/views/{{lower_name}}');
     }
 
     public function getViewNamespace(): string
