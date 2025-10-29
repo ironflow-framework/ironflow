@@ -8,13 +8,17 @@
 
  <p align="center">
   <a href="https://packagist.org/packages/ironflow/ironflow">
-    <img src="https://img.shields.io/packagist/v/ironflow/ironflow" alt="Latest Version" />
+    <img src="https://img.shields.io/packagist/v/ironflow/ironflow" alt="Latest Version">
   </a>
   <a href="https://packagist.org/packages/ironflow/ironflow">
-    <img src="https://img.shields.io/packagist/dt/ironflow/ironflow" alt="Total Downloads" />
+    <img src="https://img.shields.io/packagist/dt/ironflow/ironflow" alt="Total Downloads">
   </a>
   <a href="https://packagist.org/packages/ironflow/ironflow">
-    <img src="https://img.shields.io/packagist/l/ironflow/ironflow" alt="License" />
+    <img src="https://img.shields.io/packagist/l/ironflow/ironflow" alt="License">
+  </a>
+
+ <a href="https://github.com/ironflow-framework/ironflow/issues">
+  <img src="https://img.shields.io/github/issues/ironflow-framework/ironflow" alt="GitHub issues">
   </a>
  </p>
 
