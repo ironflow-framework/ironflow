@@ -31,7 +31,6 @@ IronFlow is a complete rewrite of the popular modular framework for Laravel. It 
 - **Smart Lazy Loading**: Hybrid lazy loading optimizes boot time and memory usage
 - **Dependency Management**: Automatic dependency resolution with circular dependency detection
 - **Manifest Caching**: Lightning-fast module discovery in production
-- **Testing Framework**: Comprehensive `ModuleTestCase` for testing your modules
 - **Laravel 12+ Ready**: Built for modern Laravel with PHP 8.2+ features
 
 ---
