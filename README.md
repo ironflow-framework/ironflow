@@ -79,15 +79,15 @@ php artisan ironflow:module:make Blog
 This generates a complete module structure:
 
 ```markdown
-├── BlogModule.php # Main module class
-├── BlogServiceProvider.php # Laravel service provider (optional)
-├── Http/Controllers/ # Controllers
-├── Models/ # Eloquent models
-├── Services/ # Business logic
-├── Resources/views/ # Blade templates
-├── Database/Migrations/ # Database migrations
-├── routes/web.php # Routes
-└── config/blog.php # Configuration
+├── BlogModule.php                    # Main module class
+├── BlogServiceProvider.php           # Laravel service provider (optional)
+├── Http/Controllers/                 # Controllers
+├── Models/                           # Eloquent models
+├── Services/                         # Business logic
+├── Resources/views/                  # Blade templates
+├── Database/Migrations/              # Database migrations
+├── routes/web.php                    # Routes
+└── config/blog.php                   # Configuration
 ```
 
 ### 2. Define Your Module
