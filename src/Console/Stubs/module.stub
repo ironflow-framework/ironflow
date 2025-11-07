@@ -4,13 +4,26 @@ namespace {{namespace}};
 
 use IronFlow\Core\{BaseModule, ModuleMetaData};
 use IronFlow\Contracts\{ViewableInterface, RoutableInterface, ConfigurableInterface, MigratableInterface};
+use {{namespace}}\Services\{{name}}Service;
 
+/**
+ * Class {{name}}Module
+ *
+ * {{name}} module for the IronFlow system.
+ *
+ * @package {{namespace}}
+ */
 class {{name}}Module extends BaseModule implements
     ViewableInterface,
     RoutableInterface,
     ConfigurableInterface,
     MigratableInterface
 {
+    /**
+     * Define module metadata.
+     *
+     * @return ModuleMetaData
+     */
     protected function defineMetadata(): ModuleMetaData
     {
         return new ModuleMetaData(
@@ -25,70 +38,121 @@ class {{name}}Module extends BaseModule implements
         );
     }
 
+    /**
+     * Boot the module during application startup.
+     */
     public function bootModule(): void
     {
         // Boot logic here
     }
 
+    /**
+     * Expose services provided by the module.
+     *
+     * @return array<string, class-string>
+     */
     public function expose(): array
     {
         return [
-            '{{name}}Service' => Services\{{name}}Service::class,
+            '{{name}}Service' => {{name}}Service::class,
         ];
     }
 
+    /**
+     * Get the path to the module's views.
+     *
+     * @return string
+     */
     public function getViewsPath(): string
     {
-        return $this->getPath('Resources/views/{{lower_name}}');
+        return $this->getPath('Resources/views/' . strtolower($this->getName()));
     }
 
+    /**
+     * Get the view namespace for the module.
+     *
+     * @return string
+     */
     public function getViewNamespace(): string
     {
         return strtolower($this->getName());
     }
 
+    /**
+     * Get the paths to the module's route files.
+     *
+     * @return array<string, string>
+     */
     public function getRoutesPath(): array
     {
         return [
             'web' => $this->getPath('routes/web.php'),
-            'api' => $this->getPath('routes/api.php')
+            'api' => $this->getPath('routes/api.php'),
         ];
     }
 
-    }
-
+    /**
+     * Middleware to apply to the module routes.
+     *
+     * @return string[]
+     */
     public function getRouteMiddleware(): array
     {
         return ['web'];
     }
 
+    /**
+     * Get the path to the module's configuration file.
+     *
+     * @return string
+     */
     public function getConfigPath(): string
     {
         return $this->getPath('config/' . strtolower($this->getName()) . '.php');
     }
 
+    /**
+     * Configuration key for the module.
+     *
+     * @return string
+     */
     public function getConfigKey(): string
     {
         return strtolower($this->getName());
     }
 
+    /**
+     * Publish the module configuration.
+     */
     public function publishConfig(): void
     {
         // Handled by ModuleServiceProvider
     }
 
+    /**
+     * Get the path to the module's migrations.
+     *
+     * @return string
+     */
     public function getMigrationsPath(): string
     {
         return $this->getPath('Database/Migrations');
     }
 
+    /**
+     * Run the module's migrations.
+     */
     public function runMigrations(): void
     {
         // Handled by MigratorManager
     }
 
+    /**/
+     * Rollback the module's migrations.
+     */
     public function rollbackMigrations(): void
     {
         // Handled by MigratorManager
     }
 }
+6
