@@ -29,12 +29,6 @@ class InstallCommand extends Command
             '--force' => false,
         ]);
 
-        // Publish stubs
-        $this->call('vendor:publish', [
-            '--tag' => 'ironflow-stubs',
-            '--force' => false,
-        ]);
-
         $this->newLine();
         $this->output->info('IronFlow installed successfully!');
         $this->newLine();
