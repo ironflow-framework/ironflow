@@ -147,7 +147,7 @@ class {{name}}Module extends BaseModule implements
         // Handled by MigratorManager
     }
 
-    /**/
+    /**
      * Rollback the module's migrations.
      */
     public function rollbackMigrations(): void
@@ -155,4 +155,3 @@ class {{name}}Module extends BaseModule implements
         // Handled by MigratorManager
     }
 }
-6
